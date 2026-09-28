@@ -1,0 +1,36 @@
+# Android & Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/.cxx/
+.gradle/
+build/
+*.apk
+*.aab
+*.dex
+captures/
+android/app/src/main/java/com/epicenter/hifi/MainActivity.java.bak
+
+# Node & Web dependencies / builds
+node_modules/
+dist/
+.pnpm-debug.log*
+.manus-logs/
+
+# IDE & Editor files
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Large zips and caches
+*.zip
+*.tar.gz
+*.log

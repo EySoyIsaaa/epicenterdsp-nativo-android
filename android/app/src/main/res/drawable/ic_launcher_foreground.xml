@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App icon foreground = the EPICENTER DSP logo (LOGO APP.png), inset so it
+     sits inside the adaptive-icon safe zone without the launcher mask clipping it. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@mipmap/ic_launcher_logo"
+    android:inset="12dp" />

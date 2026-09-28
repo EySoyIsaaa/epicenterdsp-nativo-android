@@ -1,0 +1,21 @@
+{
+	"appId": "com.epicenter.hifi",
+	"appName": "EpicenterDSP Player",
+	"webDir": "dist/public",
+	"server": {
+		"androidScheme": "https"
+	},
+	"android": {
+		"backgroundColor": "#000000",
+		"allowMixedContent": true,
+		"webContentsDebuggingEnabled": false
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 600,
+			"backgroundColor": "#000000",
+			"showSpinner": false,
+			"launchAutoHide": true
+		}
+	}
+}

@@ -1,0 +1,1068 @@
+@import url("https://fonts.googleapis.com/css2?family=Exo+2:wght@500;700;800;900&family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@600;700;800;900&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* EpicenterDSP 7.0 - Premium car-audio graphite/red theme */
+:root {
+  --ep-bg: #f7f7f7;
+  --ep-surface: #ffffff;
+  --ep-surface-elevated: #eeeeee;
+  --ep-graphite: #d8d8d8;
+  --ep-border: #d1d1d1;
+  --ep-red: #ff102a;
+  --ep-red-dark: #8f0012;
+  --ep-text: #050505;
+  --ep-text-secondary: #343434;
+  --ep-text-muted: #696969;
+
+  --primary: var(--ep-red);
+  --primary-foreground: #ffffff;
+  --accent: var(--ep-red);
+  --accent-foreground: #ffffff;
+  --secondary: var(--ep-graphite);
+  --secondary-foreground: var(--ep-text);
+  --background: var(--ep-bg);
+  --foreground: var(--ep-text);
+  --card: var(--ep-surface);
+  --card-foreground: var(--ep-text);
+  --popover: #090909;
+  --popover-foreground: var(--ep-text);
+  --muted: var(--ep-surface-elevated);
+  --muted-foreground: var(--ep-text-muted);
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: var(--ep-border);
+  --input: var(--ep-border);
+  --ring: rgba(255, 16, 42, 0.32);
+  --chart-1: var(--ep-red);
+  --chart-2: #b90a1e;
+  --chart-3: #6f6f6f;
+  --chart-4: #2a2a2a;
+  --chart-5: #181818;
+  --sidebar: #080808;
+  --sidebar-foreground: var(--ep-text);
+  --sidebar-primary: var(--ep-red);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--ep-surface-elevated);
+  --sidebar-accent-foreground: var(--ep-text);
+  --sidebar-border: var(--ep-border);
+  --sidebar-ring: rgba(255, 16, 42, 0.32);
+  --radius: 1rem;
+}
+
+.dark {
+  --ep-bg: #050505;
+  --ep-surface: #111111;
+  --ep-surface-elevated: #181818;
+  --ep-graphite: #2a2a2a;
+  --ep-border: #2f2f2f;
+  --ep-text: #f5f5f5;
+  --ep-text-secondary: #a6a6a6;
+  --ep-text-muted: #6f6f6f;
+
+  --primary: var(--ep-red);
+  --primary-foreground: #ffffff;
+  --accent: var(--ep-red);
+  --accent-foreground: #ffffff;
+  --secondary: var(--ep-graphite);
+  --secondary-foreground: var(--ep-text);
+  --background: var(--ep-bg);
+  --foreground: var(--ep-text);
+  --card: var(--ep-surface);
+  --card-foreground: var(--ep-text);
+  --popover: #090909;
+  --popover-foreground: var(--ep-text);
+  --muted: var(--ep-surface-elevated);
+  --muted-foreground: var(--ep-text-muted);
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: var(--ep-border);
+  --input: var(--ep-border);
+  --ring: rgba(255, 16, 42, 0.32);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply antialiased;
+    background: var(--ep-bg);
+    color: var(--ep-text);
+    font-family:
+      "Inter",
+      "Exo 2",
+      system-ui,
+      -apple-system,
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Selection style */
+  ::selection {
+    background: var(--ep-red);
+    color: white;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+}
+
+@layer components {
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .flex {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  /* Safe area for devices with notch and Android 3-button navigation bars */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .bottom-nav-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+  }
+
+  /* Premium card effect */
+  .card-elevated {
+    @apply bg-zinc-900/60 backdrop-blur-2xl border border-white/5;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.03),
+      0 20px 50px -12px rgba(0, 0, 0, 0.8);
+  }
+
+  /* Subtle inner glow for active elements */
+  .glow-soft {
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+      0 0 30px rgba(255, 255, 255, 0.05);
+  }
+
+  /* Album art shadow */
+  .album-shadow {
+    box-shadow:
+      0 25px 50px -12px rgba(0, 0, 0, 0.9),
+      0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+
+  /* Button press effect */
+  .btn-press {
+    @apply transition-all duration-150 ease-out;
+  }
+  .btn-press:active {
+    @apply scale-95;
+  }
+
+  /* Knob indicator LED */
+  .led-indicator {
+    @apply w-1.5 h-1.5 rounded-full bg-white;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+}
+
+/* Custom scrollbar - Minimal */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+/* Splash Screen Animations */
+.duration-400 {
+  transition-duration: 400ms;
+}
+
+@keyframes splash-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.animate-splash-pulse {
+  animation: splash-pulse 2s ease-in-out infinite;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom range input styling for EQ sliders */
+input[type="range"].eq-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"].eq-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  border-radius: 4px;
+}
+
+input[type="range"].eq-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 8px;
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+}
+
+input[type="range"].eq-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+}
+
+/* Progress bar styling */
+input[type="range"].progress-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  height: 4px;
+}
+
+input[type="range"].progress-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+input[type="range"].progress-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-radius: 50%;
+  margin-top: -4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+@layer components {
+  .epicenter-shell {
+    background:
+      radial-gradient(circle at 50% -12%, rgba(255, 16, 42, 0.14), transparent 35%),
+      linear-gradient(180deg, #090909 0%, var(--ep-bg) 42%, #030303 100%);
+  }
+
+  .premium-title {
+    font-family: "Exo 2", "Orbitron", "Inter", system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .dsp-numeric {
+    font-family: "Orbitron", "Exo 2", "Roboto Mono", monospace;
+  }
+
+  .premium-card {
+    background:
+      linear-gradient(145deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 36%),
+      linear-gradient(180deg, #181818, #0d0d0d);
+    border: 1px solid var(--ep-border);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 18px 36px rgba(0, 0, 0, 0.42);
+  }
+
+  .hardware-button {
+    background:
+      radial-gradient(circle at 35% 25%, rgba(255,255,255,0.18), transparent 28%),
+      linear-gradient(145deg, #2a2a2a, #080808 72%);
+    border: 1px solid rgba(255, 16, 42, 0.58);
+    box-shadow:
+      inset 0 1px 1px rgba(255,255,255,0.12),
+      inset 0 -8px 18px rgba(0,0,0,0.45),
+      0 0 18px rgba(255, 16, 42, 0.24);
+  }
+
+  .quality-chip {
+    border: 1px solid rgba(143, 0, 18, 0.85);
+    background: linear-gradient(180deg, #0b0b0b, #050505);
+    color: #f5f5f5;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 12px rgba(255, 16, 42, 0.08);
+  }
+
+  .red-glow-subtle {
+    box-shadow: 0 0 18px rgba(255, 16, 42, 0.18);
+  }
+
+  .technical-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px),
+      radial-gradient(circle at 50% 0%, rgba(255, 16, 42, 0.13), transparent 50%);
+    background-size: 24px 24px, 24px 24px, 100% 100%;
+  }
+
+  .library-tabs button,
+  .premium-pill {
+    border: 1px solid var(--ep-border);
+    background: #0b0b0b;
+    color: var(--ep-text-secondary);
+  }
+
+  .library-tabs button[aria-pressed="true"],
+  .premium-pill-active {
+    border-color: rgba(255, 16, 42, 0.72);
+    color: #ffffff;
+    box-shadow: 0 0 14px rgba(255, 16, 42, 0.16);
+  }
+
+  .signal-meter-bar {
+    background: linear-gradient(90deg, #4d000a, #ff102a 62%, #ff6675);
+    box-shadow: 0 0 12px rgba(255, 16, 42, 0.28);
+  }
+}
+
+body {
+  background: var(--ep-bg);
+  color: var(--ep-text);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 16, 42, 0.32);
+}
+
+input[type="range"].progress-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, rgba(255,16,42,0.86), rgba(143,0,18,0.75));
+}
+
+input[type="range"].progress-slider::-webkit-slider-thumb {
+  background: #ff102a;
+  box-shadow: 0 0 12px rgba(255, 16, 42, 0.55);
+}
+
+
+html:not(.dark) .epicenter-shell {
+  background:
+    radial-gradient(circle at 50% -12%, rgba(255, 16, 42, 0.09), transparent 34%),
+    linear-gradient(180deg, #ffffff 0%, #f7f7f7 54%, #ededed 100%);
+  color: var(--ep-text);
+}
+
+html:not(.dark) .premium-card,
+html:not(.dark) .card-elevated {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.92), rgba(255,255,255,0.65) 40%),
+    linear-gradient(180deg, #ffffff, #eeeeee);
+  border-color: var(--ep-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 14px 28px rgba(0,0,0,0.12);
+}
+
+html:not(.dark) .hardware-button {
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255,255,255,0.95), transparent 30%),
+    linear-gradient(145deg, #ffffff, #dcdcdc 72%);
+  color: #050505;
+  border-color: rgba(255, 16, 42, 0.55);
+}
+
+html:not(.dark) .quality-chip {
+  background: linear-gradient(180deg, #ffffff, #f0f0f0);
+  color: #050505;
+}
+
+html:not(.dark) .epicenter-shell .text-white {
+  color: var(--ep-text) !important;
+}
+
+html:not(.dark) .epicenter-shell [class*="bg-[#080808]"],
+html:not(.dark) .epicenter-shell [class*="bg-[#090909]"],
+html:not(.dark) .epicenter-shell [class*="bg-[#0b0b0b]"],
+html:not(.dark) .epicenter-shell [class*="bg-[#0d0d0d]"],
+html:not(.dark) .epicenter-shell [class*="bg-[#101010]"],
+html:not(.dark) .epicenter-shell [class*="bg-[#111]"],
+html:not(.dark) .epicenter-shell [class*="bg-black"] {
+  background-color: var(--ep-surface) !important;
+}
+
+html:not(.dark) .epicenter-shell [class*="border-zinc"],
+html:not(.dark) .epicenter-shell [class*="border-[var(--ep-border)]"] {
+  border-color: var(--ep-border) !important;
+}
+
+html:not(.dark) .epicenter-shell [class*="bg-zinc-900"],
+html:not(.dark) .epicenter-shell [class*="bg-zinc-800"],
+html:not(.dark) .epicenter-shell [class*="bg-zinc-700"] {
+  background-color: var(--ep-surface-elevated) !important;
+}
+
+html:not(.dark) .epicenter-shell [class*="text-zinc-500"],
+html:not(.dark) .epicenter-shell [class*="text-zinc-400"],
+html:not(.dark) .epicenter-shell [class*="text-zinc-300"] {
+  color: var(--ep-text-secondary) !important;
+}
+
+/* Keep typography legible across the existing hard-coded utility classes. */
+.epicenter-shell .text-white,
+.epicenter-shell [class*="text-zinc-100"],
+.epicenter-shell [class*="text-zinc-200"],
+.epicenter-shell [class*="text-zinc-300"] {
+  color: var(--ep-text) !important;
+}
+
+.epicenter-shell [class*="text-zinc-400"],
+.epicenter-shell [class*="text-zinc-500"],
+.epicenter-shell [class*="text-zinc-600"] {
+  color: var(--ep-text-secondary) !important;
+}
+
+.dark .epicenter-shell [class*="bg-white"] {
+  color: #050505;
+}
+
+.dark .epicenter-shell [class*="bg-white"] .text-white {
+  color: #050505 !important;
+}
+
+/* ============================================================
+   PREMIUM MOTION SYSTEM — clean, professional transitions
+   ============================================================ */
+:root {
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);   /* smooth expo-style ease-out */
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);   /* gentle overshoot */
+  --motion-fast: 140ms;
+  --motion-base: 260ms;
+  --motion-slow: 440ms;
+}
+
+/* Consistent, buttery transitions on interactive surfaces. */
+button:not(:disabled),
+[role="button"],
+a[href],
+.premium-card,
+.premium-pill,
+.hardware-button,
+.quality-chip,
+.library-tabs button {
+  transition:
+    transform var(--motion-fast) var(--ease-premium),
+    box-shadow var(--motion-base) var(--ease-premium),
+    border-color var(--motion-base) var(--ease-premium),
+    background-color var(--motion-base) var(--ease-premium),
+    color var(--motion-base) var(--ease-premium),
+    opacity var(--motion-base) var(--ease-premium);
+}
+
+/* Tactile press feedback. */
+button:not(:disabled):active,
+[role="button"]:active,
+.hardware-button:active,
+.premium-pill:active {
+  transform: scale(0.955);
+}
+
+/* Premium hover lift — only on devices that actually hover (not touch). */
+@media (hover: hover) {
+  .premium-card:hover,
+  .card-elevated:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 26px 50px rgba(0, 0, 0, 0.52),
+      0 0 24px rgba(255, 16, 42, 0.10);
+  }
+  .hardware-button:hover {
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, 0.16),
+      inset 0 -8px 18px rgba(0, 0, 0, 0.45),
+      0 0 28px rgba(255, 16, 42, 0.44);
+  }
+  .library-tabs button:hover,
+  .premium-pill:hover {
+    border-color: rgba(255, 16, 42, 0.5);
+    color: #ffffff;
+  }
+}
+
+/* Refined keyboard focus ring. */
+:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(255, 16, 42, 0.6),
+    0 0 18px rgba(255, 16, 42, 0.3);
+}
+
+/* ---- Screen / view entrance ---------------------------------- */
+@keyframes view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+    filter: blur(3px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+/* 320 ms: --motion-slow (440) se sentía pesado para cambiar de pestaña. */
+.animate-view-enter {
+  animation: view-enter 320ms var(--ease-premium) both;
+}
+
+/* Soft staggered fade-up for list/grid items. */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-rise-in {
+  animation: rise-in var(--motion-base) var(--ease-premium) both;
+}
+
+/* ---- Bottom navigation --------------------------------------- */
+@keyframes nav-indicator {
+  from { opacity: 0; transform: translateX(-50%) scaleX(0.25); }
+  to   { opacity: 1; transform: translateX(-50%) scaleX(1); }
+}
+.nav-active-indicator {
+  transform-origin: center;
+  animation: nav-indicator var(--motion-base) var(--ease-spring) both;
+}
+.nav-item {
+  transition:
+    color var(--motion-base) var(--ease-premium),
+    transform var(--motion-fast) var(--ease-premium);
+}
+.nav-item:active {
+  transform: scale(0.9);
+}
+.nav-item .nav-icon {
+  transition:
+    transform var(--motion-base) var(--ease-spring),
+    filter var(--motion-base) var(--ease-premium);
+}
+.nav-item[data-active="true"] .nav-icon {
+  transform: translateY(-1px) scale(1.16);
+  filter: drop-shadow(0 0 10px rgba(255, 16, 42, 0.65));
+}
+
+/* ---- Range sliders (EQ + progress): premium thumb feel ------- */
+input[type="range"].eq-slider::-webkit-slider-thumb,
+input[type="range"].progress-slider::-webkit-slider-thumb {
+  transition:
+    transform var(--motion-fast) var(--ease-premium),
+    box-shadow var(--motion-base) var(--ease-premium),
+    background-color var(--motion-base) var(--ease-premium);
+}
+input[type="range"].eq-slider:active::-webkit-slider-thumb {
+  background: var(--ep-red);
+  transform: scaleX(1.08) scaleY(1.3);
+  box-shadow: 0 0 16px rgba(255, 16, 42, 0.65), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+input[type="range"].progress-slider:active::-webkit-slider-thumb {
+  transform: scale(1.35);
+  box-shadow: 0 0 18px rgba(255, 16, 42, 0.75);
+}
+@media (hover: hover) {
+  input[type="range"].eq-slider:hover::-webkit-slider-thumb,
+  input[type="range"].progress-slider:hover::-webkit-slider-thumb {
+    transform: scale(1.18);
+    box-shadow: 0 0 12px rgba(255, 16, 42, 0.4);
+  }
+}
+
+/* ---- Knob: drag feedback (.knob-dragging toggled by component) */
+.knob-wrap canvas {
+  transition:
+    transform var(--motion-base) var(--ease-spring),
+    filter var(--motion-base) var(--ease-premium);
+}
+.knob-wrap.knob-dragging canvas {
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 16px rgba(255, 16, 42, 0.5));
+}
+
+/* ---- Switches / toggles: smooth state change ----------------- */
+[data-slot="switch"],
+[data-slot="switch"] [data-slot="switch-thumb"],
+[role="switch"],
+[role="switch"] span {
+  transition:
+    background-color var(--motion-base) var(--ease-premium),
+    transform var(--motion-base) var(--ease-spring),
+    box-shadow var(--motion-base) var(--ease-premium);
+}
+
+/* ---- Radix sliders (FX amounts, etc.): branded fill + feel --- */
+[data-slot="slider-range"] {
+  background: linear-gradient(90deg, var(--ep-red-dark), var(--ep-red));
+  box-shadow: 0 0 10px rgba(255, 16, 42, 0.35);
+  transition:
+    box-shadow var(--motion-base) var(--ease-premium),
+    background-color var(--motion-base) var(--ease-premium);
+}
+[data-slot="slider-thumb"] {
+  border-color: var(--ep-red);
+  transition:
+    transform var(--motion-fast) var(--ease-premium),
+    box-shadow var(--motion-base) var(--ease-premium);
+}
+[data-slot="slider-thumb"]:active {
+  transform: scale(1.25);
+  box-shadow: 0 0 16px rgba(255, 16, 42, 0.7);
+}
+@media (hover: hover) {
+  [data-slot="slider-thumb"]:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 12px rgba(255, 16, 42, 0.45);
+  }
+}
+
+/* ============================================================
+   INTRO "BASS IMPACT" — pantalla de apertura
+   Solo transform/opacity: se compone en GPU y no provoca reflow.
+   ============================================================ */
+.intro-root {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(255, 16, 42, 0.16), transparent 46%),
+    #000000;
+  overflow: hidden;
+  transform-origin: 50% 46%;
+  /* SIN fade-in de entrada. Antes tenía `intro-bg-in` (de opacity 0 a 1) y
+     durante esos primeros cuadros la intro era transparente: se alcanzaba a ver
+     el reproductor debajo y la animación parecía llegar DESPUÉS de la app.
+     El fondo debe ser opaco desde el primer cuadro; solo animan los elementos
+     de adentro. */
+  opacity: 1;
+}
+
+/* Salida: la escena se acerca un poco y se disuelve hacia la app. */
+.intro-root.intro-leaving {
+  animation: intro-out 520ms var(--ease-premium) both;
+  pointer-events: none;
+}
+
+@keyframes intro-bg-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes intro-out {
+  from { opacity: 1; transform: scale(1); filter: blur(0); }
+  to   { opacity: 0; transform: scale(1.08); filter: blur(6px); }
+}
+
+.intro-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(62vw, 280px);
+  aspect-ratio: 1;
+}
+
+/* --- Ondas expansivas (el golpe) --- */
+.intro-ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 42%;
+  height: 42%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 16, 42, 0.75);
+  opacity: 0;
+  animation: intro-ring 1900ms var(--ease-premium) both;
+}
+.intro-ring-1 { animation-delay: 200ms; }
+.intro-ring-2 { animation-delay: 430ms; }
+.intro-ring-3 { animation-delay: 660ms; }
+
+@keyframes intro-ring {
+  0%   { transform: scale(0.12); opacity: 0; border-width: 3px; }
+  12%  { opacity: 0.95; }
+  100% { transform: scale(2.9); opacity: 0; border-width: 1px; }
+}
+
+/* --- Halo que respira --- */
+.intro-bloom {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 16, 42, 0.42), transparent 68%);
+  filter: blur(14px);
+  opacity: 0;
+  animation:
+    intro-bloom-in 1100ms var(--ease-premium) 300ms both,
+    intro-bloom-pulse 3000ms ease-in-out 1400ms infinite;
+}
+@keyframes intro-bloom-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes intro-bloom-pulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.08); }
+}
+
+/* --- Logo --- */
+.intro-logo {
+  position: relative;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  opacity: 0;
+  transform-origin: 50% 50%;
+  animation: intro-logo-in 1150ms var(--ease-spring) 400ms both;
+  filter: drop-shadow(0 12px 40px rgba(255, 16, 42, 0.35));
+}
+@keyframes intro-logo-in {
+  0%   { opacity: 0; transform: scale(0.62); filter: blur(10px) drop-shadow(0 0 0 rgba(255,16,42,0)); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1);    filter: blur(0)    drop-shadow(0 12px 40px rgba(255,16,42,0.35)); }
+}
+
+/* --- Barrido rojo --- */
+.intro-sweep {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: 12%;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--ep-red), transparent);
+  transform: scaleX(0);
+  transform-origin: 50% 50%;
+  opacity: 0;
+  animation: intro-sweep 1300ms var(--ease-premium) 1200ms both;
+}
+@keyframes intro-sweep {
+  0%   { transform: scaleX(0);    opacity: 0; }
+  35%  { transform: scaleX(1);    opacity: 1; }
+  100% { transform: scaleX(1.02); opacity: 0; }
+}
+
+/* --- Barras de espectro --- */
+.intro-spectrum {
+  position: absolute;
+  bottom: 22%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  height: 34px;
+}
+.intro-bar {
+  --bar-peak: 50%;
+  width: 3px;
+  height: 10%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--ep-red), rgba(255, 16, 42, 0.35));
+  transform-origin: 50% 100%;
+  opacity: 0;
+  animation: intro-bar 1300ms ease-in-out both infinite alternate;
+}
+@keyframes intro-bar {
+  0%   { opacity: 0; height: 8%; }
+  25%  { opacity: 1; }
+  100% { opacity: 1; height: var(--bar-peak); }
+}
+
+/* --- Pie --- */
+.intro-footer {
+  position: absolute;
+  bottom: 9%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: intro-footer-in 900ms var(--ease-premium) 1800ms both;
+}
+@keyframes intro-footer-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.intro-version {
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 16, 42, 0.4);
+  background: rgba(255, 16, 42, 0.08);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #ffffff;
+}
+.intro-tagline {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+/* Sin animación: mostrar el resultado final de inmediato. */
+@media (prefers-reduced-motion: reduce) {
+  .intro-ring,
+  .intro-sweep,
+  .intro-spectrum { display: none; }
+  .intro-logo,
+  .intro-bloom,
+  .intro-footer { animation: none; opacity: 1; transform: none; filter: none; }
+}
+
+/* ============================================================
+   SEEK SLIDER — linea de tiempo del reproductor
+   Control propio (ya no input[type=range]): el gesto lo maneja el componente,
+   asi que aqui `touch-action: none` SI corresponde — evita que la pagina haga
+   scroll mientras se arrastra.
+   ============================================================ */
+.seek-control {
+  position: relative;
+  width: 100%;
+  height: 30px;              /* area tactil generosa */
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+.seek-control.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.seek-track {
+  position: relative;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: height var(--motion-fast) var(--ease-premium);
+}
+
+.seek-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ep-red-dark), var(--ep-red));
+}
+
+.seek-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translateY(-50%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  transition:
+    width var(--motion-fast) var(--ease-spring),
+    height var(--motion-fast) var(--ease-spring),
+    box-shadow var(--motion-fast) var(--ease-premium);
+}
+
+/* Al arrastrar: la barra engorda y el thumb crece con halo rojo. */
+.seek-wrap[data-scrubbing="true"] .seek-track { height: 7px; }
+.seek-wrap[data-scrubbing="true"] .seek-thumb {
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  box-shadow: 0 0 0 6px rgba(255, 16, 42, 0.18), 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+.seek-control:focus-visible .seek-thumb {
+  box-shadow: 0 0 0 4px rgba(255, 16, 42, 0.35), 0 2px 8px rgba(0, 0, 0, 0.55);
+}
+
+.seek-time-active {
+  color: #ffffff;
+  transition: color var(--motion-fast) var(--ease-premium);
+}
+
+/* ============================================================
+   VENTANAS EMERGENTES Y MENÚS
+   Los overlays de HomeOverlays están hechos a mano (no son Radix), así que
+   aparecían de golpe. Estas clases les dan entrada coreografiada.
+   ============================================================ */
+@keyframes modal-backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to   { opacity: 1; backdrop-filter: blur(4px); }
+}
+.modal-backdrop {
+  animation: modal-backdrop-in var(--motion-base) var(--ease-premium) both;
+}
+
+@keyframes modal-panel-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.93); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-panel {
+  animation: modal-panel-in var(--motion-base) var(--ease-spring) both;
+}
+
+/* Menú contextual del toque largo: brota desde el centro con rebote corto. */
+@keyframes ctx-menu-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.86); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.ctx-menu {
+  transform: translate(-50%, -50%);
+  animation: ctx-menu-in 230ms var(--ease-spring) both;
+}
+
+/* Las opciones entran escalonadas detrás del menú. */
+@keyframes ctx-item-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.ctx-item {
+  animation: ctx-item-in 260ms var(--ease-premium) both;
+}
+.ctx-item:nth-child(1) { animation-delay: 40ms; }
+.ctx-item:nth-child(2) { animation-delay: 75ms; }
+.ctx-item:nth-child(3) { animation-delay: 110ms; }
+.ctx-item:nth-child(4) { animation-delay: 145ms; }
+.ctx-item:nth-child(5) { animation-delay: 180ms; }
+.ctx-item:nth-child(6) { animation-delay: 215ms; }
+
+/* Tarjeta de reseña: sube desde abajo y las estrellas brotan escalonadas. */
+@keyframes review-card-in {
+  from { opacity: 0; transform: translateY(42px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.review-card {
+  animation: review-card-in 420ms var(--ease-spring) both;
+}
+@keyframes review-star-in {
+  0%   { opacity: 0; transform: scale(0.2) rotate(-45deg); }
+  70%  { opacity: 1; transform: scale(1.25) rotate(6deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+.review-star {
+  opacity: 0;
+  animation: review-star-in 520ms var(--ease-spring) both;
+}
+
+/* Realimentación al mantener presionado. Solo el brillo: la escala se aplica
+   en el style inline de la fila, porque ahí ya vive el translateX del swipe y
+   un transform inline le ganaría a este. */
+.press-hold {
+  filter: brightness(1.22);
+  transition: filter 300ms var(--ease-premium);
+}
+
+/* Honor users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

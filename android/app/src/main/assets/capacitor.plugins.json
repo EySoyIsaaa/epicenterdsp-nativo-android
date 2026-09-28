@@ -1,0 +1,10 @@
+[
+	{
+		"pkg": "@capgo/capacitor-media-session",
+		"classpath": "com.capgo.mediasession.MediaSessionPlugin"
+	},
+	{
+		"pkg": "@odion-cloud/capacitor-mediastore",
+		"classpath": "com.capacitor.mediastore.MediaStorePlugin"
+	}
+]
