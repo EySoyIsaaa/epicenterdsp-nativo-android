@@ -1,4 +1,4 @@
-package com.getcapacitor.myapp;
+package com.epicenter.hifi;
 
 import static org.junit.Assert.*;
 

@@ -61,16 +61,15 @@ public class NativePlaybackController {
         // IMPORTANTE: forzamos enableFloatOutput=false. Si el caller pidiera
         // PCM_FLOAT, nuestros AudioProcessors (PCM_16BIT only) lanzarían
         // UnhandledAudioFormatException y Media3 los saltaría silenciosamente.
-        // ESTABILIDAD > baja latencia: el buffer chico (80-250ms × factor 2)
-        // causaba UNDERRUNS en equipos modestos con la cadena DSP pesada
-        // (Epicenter + EQ 31 bandas + reverb) → audio que "se acelera"/"se traba"/
-        // "salta". Volvemos a valores seguros (~el default de Media3). Se pierde
-        // un poco de latencia al mover perillas, pero el audio deja de cortarse.
+        // La cola también define cuánto tarda en oírse un cambio de DSP. Un
+        // factor 4 con límites de 250–750 ms dejaba entre 1 y 3 s de audio viejo
+        // ya procesado en AudioTrack. Mantenemos una reserva conservadora para
+        // la cadena DSP, pero sin multiplicarla: los cambios se oyen en ~100–200 ms.
         DefaultAudioSink.AudioTrackBufferSizeProvider bufferSizeProvider =
             new DefaultAudioTrackBufferSizeProvider.Builder()
-                .setMinPcmBufferDurationUs(250_000)  // 250ms
-                .setMaxPcmBufferDurationUs(750_000)  // 750ms
-                .setPcmBufferMultiplicationFactor(4) // 4x
+                .setMinPcmBufferDurationUs(100_000)  // 100ms
+                .setMaxPcmBufferDurationUs(200_000)  // 200ms
+                .setPcmBufferMultiplicationFactor(1)
                 .build();
         AudioSink sink = new DefaultAudioSink.Builder(ctx)
           .setEnableFloatOutput(false)
@@ -134,11 +133,8 @@ public class NativePlaybackController {
     // cola de ExoPlayer, hay que saltar a su índice en vez de hacer
     // setMediaItem(), que reemplaza toda la cola por UN solo elemento.
     //
-    // El flujo del JS empuja la cola completa (setQueue) y acto seguido llama a
-    // loadTrack para la pista elegida; con setMediaItem eso dejaba al reproductor
-    // con una sola canción. Con la app abierta no se notaba porque al terminar el
-    // JS cargaba la siguiente a mano, pero en segundo plano el WebView se congela
-    // y ExoPlayer no tenía a dónde avanzar: la música se detenía tras una canción.
+    // El controlador conserva la cola completa de Media3 y avanza por sí mismo
+    // incluso cuando la interfaz no está activa.
     int existing = indexOfMediaId(track.id);
     if (existing >= 0) {
       // No se toca queueManager: su lista sigue siendo la cola correcta; solo
@@ -207,6 +203,32 @@ public class NativePlaybackController {
     Log.i(TAG, "setQueue size=" + tracks.size() + " startIndex=" + clampedStart);
     player.setMediaItems(items, clampedStart, 0L);
     player.prepare();
+  }
+
+  public void addTrack(NativeAudioTrack track, int index) {
+    if (track == null) return;
+    int safeIndex = Math.max(0, Math.min(index, player.getMediaItemCount()));
+    queueManager.insert(safeIndex, track);
+    player.addMediaItem(safeIndex, buildMediaItem(track));
+  }
+
+  public void removeTrack(int index) {
+    if (index < 0 || index >= player.getMediaItemCount()) return;
+    player.removeMediaItem(index);
+    queueManager.removeAt(index);
+  }
+
+  public void moveTrack(int from, int to) {
+    if (from < 0 || to < 0 || from >= player.getMediaItemCount() || to >= player.getMediaItemCount() || from == to) return;
+    player.moveMediaItem(from, to);
+    queueManager.move(from, to);
+  }
+
+  public java.util.List<NativeAudioTrack> getQueue() { return queueManager.snapshot(); }
+
+  public void clearQueue() {
+    player.clearMediaItems();
+    queueManager.clear();
   }
 
   public void nextTrack() {
@@ -278,8 +300,8 @@ public class NativePlaybackController {
   // volumen al final de la pista y lo sube al empezar la siguiente. Para el
   // oyente la transición deja de ser un corte seco, que es el 90% del efecto.
   //
-  // Vive en el nativo a propósito: en segundo plano el WebView se congela y un
-  // temporizador de JS no correría. Usa player.setVolume(), que es independiente
+  // Se ejecuta en el reproductor nativo para continuar en segundo plano. Usa
+  // player.setVolume(), que es independiente
   // de la perilla Volume del DSP (esa se aplica dentro del C++).
   private boolean crossfadeEnabled = false;
   private long crossfadeMs = 5000;

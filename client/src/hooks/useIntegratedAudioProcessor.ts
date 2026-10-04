@@ -5,11 +5,8 @@
  * Arquitectura WEB:
  *   AudioElement -> Epicenter Worklet -> Equalizer Filters -> Destination
  *
- * Arquitectura ANDROID NATIVE (FASE 5.5):
- *   Este hook delega COMPLETAMENTE en `useAndroidNativeAudioProcessor`.
- *   - No se crea AudioContext / new Audio() / AudioWorklet.
- *   - El reproductor y el Epicenter corren 100% nativo (ExoPlayer + C++).
- *   - No hay fallback WebAudio en Android. Si el nativo falla, se reporta error.
+ * El cliente web usa Web Audio. La aplicación Android nativa tiene su propio
+ * motor Compose/Media3 y no carga este paquete ni monta una WebView.
  *
  * v1.1.1 - Agregado soporte para:
  * - Callback onTrackEnded para continuar reproducción automática
@@ -17,22 +14,6 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Capacitor } from "@capacitor/core";
-import { useAndroidNativeAudioProcessor } from "./useAndroidNativeAudioProcessor";
-
-// Detección estable a nivel de módulo: el platform de Capacitor no cambia
-// durante la sesión, por lo que es seguro ramificar en base a esto sin
-// violar las reglas de hooks (todos los renders tomarán la misma rama).
-const IS_ANDROID_NATIVE = (() => {
-  try {
-    return (
-      Capacitor.isNativePlatform?.() === true &&
-      Capacitor.getPlatform?.() === "android"
-    );
-  } catch {
-    return false;
-  }
-})();
 
 export interface StreamingParams {
   sweepFreq: number;
@@ -333,20 +314,6 @@ export interface LoadFileRequestGuard {
   isCurrentRequest?: () => boolean;
 }
 
-/**
- * Metadata opcional del track que la UI ya conoce y que el motor nativo
- * (EpicenterNative + ExoPlayer) requiere para registrar el item correctamente.
- * En la build web este parámetro se ignora.
- */
-export interface LoadFileTrackMetadata {
-  id: string;
-  title?: string;
-  artist?: string;
-  album?: string;
-  duration?: number;
-  artworkUri?: string;
-}
-
 export interface IntegratedAudioController {
   isReady: boolean;
   isPlaying: boolean;
@@ -356,7 +323,6 @@ export interface IntegratedAudioController {
     file: File | string,
     dspParams: StreamingParams,
     requestGuard?: LoadFileRequestGuard,
-    trackMetadata?: LoadFileTrackMetadata,
   ) => Promise<boolean>;
   play: () => boolean;
   getActiveSource: () => string;
@@ -381,36 +347,15 @@ export interface IntegratedAudioController {
   eqEnabled: boolean;
   epicenterEnabled: boolean;
   spatialEffects: SpatialEffectsConfig;
-  /** Android native only — push the full queue so ExoPlayer handles
-   *  background auto-advance without JS. No-op on other platforms. */
-  setNativeQueue?: (tracks: import('@/hooks/useAudioQueue').Track[], startIndex: number) => void;
-  /** Android native only — called when ExoPlayer auto-advances within a native queue. */
-  setOnNativeTrackAdvanced?: (callback: ((index: number, id: string) => void) | null) => void;
-  /** Android native only — called when the user taps next/previous in the system media notification. */
-  setOnNotificationCommand?: (callback: ((action: string) => void) | null) => void;
-  /** Android native only — motor de graves activo: "car" (clásico, subwoofer)
-   *  o "headphones" (audífonos y bocinas portátiles). Nunca corren los dos. */
+  /** UI mode used by the standalone web client; the Android app owns its native DSP mode. */
   epicenterMode?: EpicenterMode;
-  /** Android native only — cambia el motor de graves. No-op en otras plataformas. */
   setEpicenterMode?: (mode: EpicenterMode) => void;
 }
 
 /**
- * Entry-point del controller de audio integrado.
- *
- * En Android nativo (Capacitor) delega COMPLETAMENTE en
- * `useAndroidNativeAudioProcessor`. La build Android NO debe crear AudioContext,
- * AudioWorklet ni HTMLAudioElement: el reproductor y el Epicenter corren del
- * lado nativo (ExoPlayer + EpicenterAudioProcessor + EpicenterDSPCore.cpp).
- *
- * En cualquier otra plataforma (web, iOS) se conserva la ruta WebAudio.
+ * Web Audio controller for the standalone browser client.
  */
 export function useIntegratedAudioProcessor(): IntegratedAudioController {
-  if (IS_ANDROID_NATIVE) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useAndroidNativeAudioProcessor();
-  }
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   return useWebIntegratedAudioProcessor();
 }
 

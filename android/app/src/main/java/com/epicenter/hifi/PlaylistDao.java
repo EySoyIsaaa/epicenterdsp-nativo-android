@@ -33,6 +33,9 @@ public interface PlaylistDao {
   @Query("UPDATE playlists SET updatedAt=:now WHERE playlistId=:id")
   void touch(String id, long now);
 
+  @Query("UPDATE playlist_tracks SET position=:position WHERE playlistId=:playlistId AND trackStableId=:trackStableId")
+  void updateTrackPosition(String playlistId, String trackStableId, int position);
+
   @Query("DELETE FROM playlist_tracks WHERE playlistId=:playlistId AND trackStableId=:trackStableId")
   void removeTrack(String playlistId, String trackStableId);
 

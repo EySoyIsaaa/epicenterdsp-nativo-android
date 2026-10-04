@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -27,6 +28,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.epicenter.hifi.ui.components.Equalizer31Band
 import com.epicenter.hifi.ui.components.SpectrumMeter
 import com.epicenter.hifi.ui.theme.AccentGold
+import com.epicenter.hifi.ui.theme.AccentRed
 import com.epicenter.hifi.ui.theme.CardSurface
 import com.epicenter.hifi.ui.theme.PureBlack
 import com.epicenter.hifi.ui.theme.TextPrimary
@@ -52,6 +57,7 @@ fun EqScreen(
     val eqParams by viewModel.eqParams.collectAsState()
     val spectrumBands by viewModel.spectrumBands.collectAsState()
     val scrollState = rememberScrollState()
+    var tuneResult by remember { mutableStateOf<Boolean?>(null) }
 
     Column(
         modifier = modifier
@@ -95,6 +101,15 @@ fun EqScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedButton(
+            onClick = { tuneResult = viewModel.autoTune() },
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentRed),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Optimizar con la canción actual", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
 
         // Presets rápidos
         LazyRow(
@@ -192,6 +207,19 @@ fun EqScreen(
             bands = eqParams.bands,
             frequencyLabels = viewModel.frequencyLabels,
             onBandChange = { index, gain -> viewModel.setBandGain(index, gain) }
+        )
+    }
+
+    if (tuneResult != null) {
+        AlertDialog(
+            onDismissRequest = { tuneResult = null },
+            title = { Text(if (tuneResult == true) "Ecualización optimizada" else "No hay suficiente señal") },
+            text = { Text(if (tuneResult == true) "Se aplicó una corrección suave a las 31 bandas usando el espectro real de la reproducción." else "Reproduce una canción durante unos segundos y vuelve a intentarlo.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { tuneResult = null }) {
+                    Text("Entendido", color = AccentRed)
+                }
+            }
         )
     }
 }

@@ -50,7 +50,7 @@ public class EpicenterPlaybackService extends MediaSessionService {
 
     private static final String TAG = "EpicenterService";
 
-    /** Intent action used by the plugin to get a LocalBinder (not a MediaSession token). */
+    /** Intent action used by the native activity to bind to the shared player. */
     public static final String ACTION_LOCAL_BIND = "com.epicenter.hifi.LOCAL_BIND";
 
     private static final String CHANNEL_ID = "epicenter_playback";
@@ -76,19 +76,6 @@ public class EpicenterPlaybackService extends MediaSessionService {
 
     /** Set true while tearing down (task swiped away) so we stop re-posting the notification. */
     private volatile boolean shuttingDown = false;
-
-    /**
-     * Lets the plugin forward the notification's skip buttons to the JS queue
-     * (which owns next/previous logic), so notification skip behaves exactly
-     * like the in-app skip buttons.
-     */
-    public interface MediaButtonCallback {
-        void onCommand(String action);
-    }
-    private MediaButtonCallback mediaButtonCallback;
-    public void setMediaButtonCallback(MediaButtonCallback cb) {
-        this.mediaButtonCallback = cb;
-    }
 
     @Override
     public void onCreate() {
@@ -137,13 +124,10 @@ public class EpicenterPlaybackService extends MediaSessionService {
                     else playbackController.play();
                     return START_STICKY;
                 case ACTION_NEXT:
-                    // Forward to the JS queue (same as the in-app next button).
-                    if (mediaButtonCallback != null) mediaButtonCallback.onCommand("next");
-                    else playbackController.nextTrack();
+                    playbackController.nextTrack();
                     return START_STICKY;
                 case ACTION_PREV:
-                    if (mediaButtonCallback != null) mediaButtonCallback.onCommand("previous");
-                    else playbackController.previousTrack();
+                    playbackController.previousTrack();
                     return START_STICKY;
                 default:
                     break;

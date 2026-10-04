@@ -58,6 +58,7 @@ import com.epicenter.hifi.viewmodel.PlayerViewModel
 fun PlayerScreen(
     viewModel: PlayerViewModel,
     onDismiss: () -> Unit,
+    onOpenQueue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.playbackState.collectAsState()
@@ -96,7 +97,7 @@ fun PlayerScreen(
                 letterSpacing = 2.sp
             )
 
-            IconButton(onClick = { /* Abrir cola */ }) {
+            IconButton(onClick = onOpenQueue) {
                 Icon(
                     imageVector = Icons.Default.QueueMusic,
                     contentDescription = "Cola",

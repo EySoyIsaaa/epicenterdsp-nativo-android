@@ -1,64 +1,32 @@
 # Epicenter Hi-Fi
 
-**Versión:** 5.0.0  
-**Última actualización:** 27 de marzo de 2026
+Epicenter Hi-Fi es un reproductor de música local. La aplicación Android usa una interfaz nativa de Jetpack Compose y procesa el audio dentro de Media3, Java/Kotlin y C++ (NDK/JNI). El APK no incluye una WebView ni necesita generar o sincronizar una aplicación web.
 
-Epicenter Hi-Fi es un **reproductor local de música** para Android/Web con un enfoque diferencial: el núcleo de la experiencia está en el **procesador Epicenter DSP** y en la **implementación de IA aplicada al audio y a la experiencia de uso**.
+## Aplicación Android
 
-## Enfoque para Inovatec (factor diferencial)
+- Biblioteca local indexada desde MediaStore y archivos importados con el selector del sistema.
+- Reproducción en segundo plano con Media3, sesión multimedia y controles de notificación.
+- Cola editable, playlists persistentes y búsqueda local.
+- Epicenter DSP con perfiles Car Audio y Audífonos.
+- Ecualizador gráfico de 31 bandas, espectro en vivo y ajustes automáticos.
+- Reverb, sala de conciertos y fundido de pista configurable.
+- Interfaz nativa con transiciones, tema claro/oscuro e idioma español/inglés.
 
-Aunque es un reproductor completo (biblioteca, cola, playlists, alta resolución), el proyecto se posiciona como una plataforma de audio inteligente centrada en:
+### Flujo de audio Android
 
-- **Epicenter DSP en tiempo real** para reconstrucción de graves y control fino del perfil sonoro.
-- **IA aplicada** para asistencia contextual, automatización de decisiones de sonido y experiencias de ayuda dentro de la app.
-- **Integración híbrida Web + Android nativo** para mantener portabilidad sin perder capacidades del dispositivo.
+`Media3 / AudioTrack -> Epicenter C++ -> EQ 31 bandas -> efectos -> salida`
 
-Este enfoque (Epicenter + IA) es el factor que diferencia la app frente a reproductores tradicionales basados sólo en reproducción y ecualización estática.
+### Compilar
 
-## Qué hace hoy la app
+Desde la raíz del repositorio, `./build.sh` compila el APK de depuración. También se puede abrir `android/` en Android Studio. El proyecto requiere JDK 17, Android SDK y NDK/CMake.
 
-- Reproducción local de archivos de audio.
-- Biblioteca persistente con importación manual y escaneo en Android.
-- Cola editable y playlists locales.
-- Ecualizador gráfico de 31 bandas.
-- Procesador Epicenter con controles: Sweep, Width, Intensity, Balance y Volume.
-- Detección de pistas High Resolution.
-- Crossfade configurable.
-- Controles de reproducción en background.
-- Interfaz bilingüe (ES/EN).
-- Soporte de navegación Android con botón físico de regresar (back) para volver entre vistas antes de cerrar la app.
+## Cliente web independiente
 
-## Formatos soportados
+`client/`, `server/` y `shared/` conservan el cliente web React/TypeScript y su servidor. Se compilan con `pnpm build`; no forman parte del APK Android.
 
-- MP3
-- WAV
-- FLAC
-- M4A / AAC
-- OGG (según disponibilidad del origen)
+## Estructura
 
-## Stack tecnológico
-
-- React 19 + TypeScript
-- Vite
-- Tailwind CSS
-- Web Audio API + AudioWorklet
-- Capacitor Android
-- IndexedDB
-
-## Flujo de audio
-
-`Audio source -> Epicenter processor -> 31-band equalizer -> output`
-
-## Estructura del proyecto
-
-- `client/`: interfaz, audio, hooks y componentes.
-- `server/`: servidor Express/tRPC para servir la aplicación.
-- `shared/`: utilidades y tipos compartidos.
-- `android/`: contenedor Android con Capacitor y plugin nativo para MediaStore.
-
-## Scripts principales
-
-- `pnpm dev`: entorno de desarrollo.
-- `pnpm build`: compilación de frontend y servidor.
-- `pnpm test`: pruebas con Vitest.
-- `pnpm check`: validación TypeScript.
+- `android/`: aplicación Android nativa, Compose, Media3, Room y DSP C++.
+- `client/`: cliente web React/TypeScript y lógica de audio Web Audio.
+- `server/`: servidor Express/tRPC.
+- `shared/`: tipos y utilidades compartidos.

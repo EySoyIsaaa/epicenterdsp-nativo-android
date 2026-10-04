@@ -9,8 +9,12 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
 import com.epicenter.hifi.AppDatabase
+import com.epicenter.hifi.PlaylistEntity
+import com.epicenter.hifi.PlaylistTrackEntity
 import com.epicenter.hifi.TrackEntity
 import com.epicenter.hifi.data.model.AudioTrack
+import java.io.File
+import java.security.MessageDigest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,9 +39,184 @@ class MusicRepository(private val context: Context) {
     private val _scanProgress = MutableStateFlow(0f)
     val scanProgress: StateFlow<Float> = _scanProgress.asStateFlow()
 
+    private val _playlists = MutableStateFlow<List<LocalPlaylist>>(emptyList())
+    val playlists: StateFlow<List<LocalPlaylist>> = _playlists.asStateFlow()
+
     init {
         loadCachedTracks()
+        refreshPlaylists()
     }
+
+    fun refreshPlaylists() {
+        scope.launch {
+            _playlists.value = withContext(Dispatchers.IO) {
+                db.playlistDao().getAll().map { playlist ->
+                    LocalPlaylist(
+                        id = playlist.playlistId,
+                        name = playlist.name,
+                        trackIds = db.playlistDao().getTrackIds(playlist.playlistId)
+                    )
+                }
+            }
+        }
+    }
+
+    suspend fun createPlaylist(name: String): String = withContext(Dispatchers.IO) {
+        val cleanName = name.trim().ifEmpty { "Nueva playlist" }
+        val now = System.currentTimeMillis()
+        val id = "playlist-${java.util.UUID.randomUUID()}"
+        db.playlistDao().upsert(PlaylistEntity().apply {
+            playlistId = id
+            this.name = cleanName
+            createdAt = now
+            updatedAt = now
+        })
+        refreshPlaylists()
+        id
+    }
+
+    suspend fun renamePlaylist(id: String, name: String) = withContext(Dispatchers.IO) {
+        val cleanName = name.trim()
+        if (cleanName.isNotEmpty()) db.playlistDao().rename(id, cleanName, System.currentTimeMillis())
+        refreshPlaylists()
+    }
+
+    suspend fun deletePlaylist(id: String) = withContext(Dispatchers.IO) {
+        db.playlistDao().deletePlaylist(id)
+        refreshPlaylists()
+    }
+
+    suspend fun getPlaylistTracks(id: String): List<AudioTrack> = withContext(Dispatchers.IO) {
+        db.playlistDao().getTrackIds(id).mapNotNull { trackDao.getByStableId(it)?.toAudioTrack() }
+    }
+
+    suspend fun addTracksToPlaylist(id: String, tracks: List<AudioTrack>) = withContext(Dispatchers.IO) {
+        var position = (db.playlistDao().getMaxPosition(id) ?: -1) + 1
+        tracks.forEach { track ->
+            db.playlistDao().insertTrack(PlaylistTrackEntity().apply {
+                playlistId = id
+                trackStableId = track.stableId
+                this.position = position++
+                addedAt = System.currentTimeMillis()
+            })
+        }
+        db.playlistDao().touch(id, System.currentTimeMillis())
+        refreshPlaylists()
+    }
+
+    suspend fun removeTrackFromPlaylist(id: String, trackId: String) = withContext(Dispatchers.IO) {
+        db.playlistDao().removeTrack(id, trackId)
+        refreshPlaylists()
+    }
+
+    suspend fun importUris(uris: List<Uri>): ImportTracksResult = withContext(Dispatchers.IO) {
+        val imported = mutableListOf<AudioTrack>()
+        var duplicates = 0
+        uris.forEach { uri ->
+            try {
+                val uriText = uri.toString()
+                if (trackDao.getBySourceUri(uriText) != null) {
+                    duplicates++
+                    return@forEach
+                }
+
+                val retriever = MediaMetadataRetriever()
+                val title: String
+                val artist: String
+                val album: String
+                val duration: Long
+                val bitrate: Int?
+                val embeddedArtwork: ByteArray?
+                try {
+                    retriever.setDataSource(context, uri)
+                    title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                        ?.takeIf { it.isNotBlank() } ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Audio importado"
+                    artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                        ?.takeIf { it.isNotBlank() && it != "<unknown>" } ?: "Artista desconocido"
+                    album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                        ?.takeIf { it.isNotBlank() && it != "<unknown>" } ?: "Álbum desconocido"
+                    duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                    bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull()
+                    embeddedArtwork = retriever.embeddedPicture
+                } finally {
+                    try { retriever.release() } catch (_: Exception) {}
+                }
+                val id = "doc-${sha256(uriText).take(24)}"
+                val artwork = embeddedArtwork?.let { bytes -> saveArtwork(id, bytes) }
+
+                var sampleRate: Int? = null
+                var channels: Int? = null
+                var bitDepth: Int? = null
+                val extractor = MediaExtractor()
+                try {
+                    extractor.setDataSource(context, uri, null)
+                    for (index in 0 until extractor.trackCount) {
+                        val format = extractor.getTrackFormat(index)
+                        if (!(format.getString(MediaFormat.KEY_MIME) ?: "").startsWith("audio/")) continue
+                        if (format.containsKey(MediaFormat.KEY_SAMPLE_RATE)) sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                        if (format.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                        if (format.containsKey("bits-per-sample")) bitDepth = format.getInteger("bits-per-sample")
+                        break
+                    }
+                } catch (_: Exception) {
+                } finally {
+                    try { extractor.release() } catch (_: Exception) {}
+                }
+
+                val hiRes = (bitDepth ?: 0) >= 24 || (sampleRate ?: 0) >= 48000
+                trackDao.upsert(TrackEntity().apply {
+                    stableId = id
+                    sourceUri = uriText
+                    localUri = uriText
+                    this.title = title
+                    this.artist = artist
+                    this.album = album
+                    this.duration = duration
+                    this.bitrate = bitrate
+                    this.sampleRate = sampleRate
+                    this.channels = channels
+                    this.bitDepth = bitDepth
+                    isHiRes = hiRes
+                    albumArtUri = artwork
+                    sourceType = "document"
+                    mimeType = context.contentResolver.getType(uri)
+                    size = 0L
+                    createdAt = System.currentTimeMillis()
+                    updatedAt = System.currentTimeMillis()
+                })
+                imported += AudioTrack(
+                    id = id, stableId = id, title = title, artist = artist, album = album,
+                    duration = duration / 1000.0, uri = uriText, bitDepth = bitDepth,
+                    sampleRate = sampleRate, bitrate = bitrate, channels = channels,
+                    isHiRes = hiRes, albumArtUri = artwork
+                )
+            } catch (error: Exception) {
+                Log.w("MusicRepository", "No se pudo importar $uri", error)
+            }
+        }
+        loadCachedTracks()
+        ImportTracksResult(imported, duplicates)
+    }
+
+    suspend fun removeFromLibrary(track: AudioTrack) = withContext(Dispatchers.IO) {
+        trackDao.deleteByStableId(track.stableId)
+        db.playlistDao().removeTrackEverywhere(track.stableId)
+        _tracks.value = _tracks.value.filterNot { it.stableId == track.stableId }
+        refreshPlaylists()
+    }
+
+    private fun saveArtwork(trackId: String, bytes: ByteArray): String? = try {
+        val directory = File(context.filesDir, "album-art").apply { mkdirs() }
+        val file = File(directory, "$trackId.jpg")
+        file.writeBytes(bytes)
+        Uri.fromFile(file).toString()
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray())
+        .joinToString("") { "%02x".format(it) }
 
     fun loadCachedTracks() {
         scope.launch {
@@ -233,11 +412,11 @@ class MusicRepository(private val context: Context) {
 }
 
 private fun TrackEntity.toAudioTrack(): AudioTrack {
-    val albumArt = if (!this.mediaStoreId.isNullOrEmpty()) {
+    val albumArt = this.albumArtUri ?: if (!this.mediaStoreId.isNullOrEmpty()) {
         try {
             ContentUris.withAppendedId(
                 Uri.parse("content://media/external/audio/albumart"),
-                this.mediaStoreId.toLong()
+                this.albumId ?: this.mediaStoreId.toLong()
             ).toString()
         } catch (_: Exception) {
             null
@@ -264,3 +443,6 @@ private fun TrackEntity.toAudioTrack(): AudioTrack {
         dateAdded = this.createdAt
     )
 }
+
+data class LocalPlaylist(val id: String, val name: String, val trackIds: List<String>)
+data class ImportTracksResult(val tracks: List<AudioTrack>, val duplicateCount: Int)

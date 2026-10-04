@@ -42,18 +42,14 @@ public class EpicenterAudioProcessor extends BaseAudioProcessor {
   public boolean wasGetOutputCalled() { return getOutputCalledOnce; }
 
   public synchronized void setEpicenterEnabled(boolean enabled) {
-    final boolean changed = epicenterEnabled != enabled;
     epicenterEnabled = enabled;
     final EpicenterDSPNative dsp = dspNative;
-    if (dsp != null) {
-      if (changed) {
-        try { dsp.reset(); } catch (Throwable t) {
-          Log.w(TAG, "DSP reset on enable toggle failed", t);
-        }
-      }
-      dsp.setEnabled(enabled);
-    }
-    Log.i(TAG, "setEpicenterEnabled enabled=" + enabled + " reset=" + changed);
+    // Alternar solo publica el estado. Reiniciar aquí los seguidores de
+    // envolvente y el oscilador hacía que el efecto tardara en recuperarse al
+    // activarse, especialmente en modo Audífonos. El reset sigue reservado
+    // para cambios de pista/formato, donde sí se necesita limpiar el historial.
+    if (dsp != null) dsp.setEnabled(enabled);
+    Log.i(TAG, "setEpicenterEnabled enabled=" + enabled);
   }
 
   public synchronized void setEpicenterParams(

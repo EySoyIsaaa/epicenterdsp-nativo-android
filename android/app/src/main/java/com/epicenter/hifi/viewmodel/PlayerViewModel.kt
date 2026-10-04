@@ -49,6 +49,18 @@ class PlayerViewModel(private val audioEngine: AudioEngine) : ViewModel() {
         audioEngine.playTrackAtIndex(index)
     }
 
+    fun moveQueueItem(from: Int, to: Int) {
+        audioEngine.moveQueueItem(from, to)
+    }
+
+    fun removeFromQueue(index: Int) {
+        audioEngine.removeFromQueue(index)
+    }
+
+    fun clearQueue() {
+        audioEngine.clearQueue()
+    }
+
     class Factory(private val audioEngine: AudioEngine) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

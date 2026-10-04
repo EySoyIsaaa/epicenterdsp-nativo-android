@@ -2,25 +2,10 @@
  * Glassmorphism Nocturno Design
  * Hook para procesamiento de audio en tiempo real con Epicenter DSP
  *
- * FASE 5.5: este hook usa WebAudio + AudioWorklet y NO debe ejecutarse en
- * Android nativo (donde el motor real es ExoPlayer + EpicenterAudioProcessor
- * + EpicenterDSPCore.cpp). Mantenemos el archivo para builds web/iOS, pero
- * cualquier intento de loadFile en Android dispara un error explícito.
+ * Hook de procesamiento Web Audio para el cliente ejecutado en navegador.
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Capacitor } from '@capacitor/core';
-
-const IS_ANDROID_NATIVE = (() => {
-  try {
-    return (
-      Capacitor.isNativePlatform?.() === true &&
-      Capacitor.getPlatform?.() === 'android'
-    );
-  } catch {
-    return false;
-  }
-})();
 
 export interface StreamingParams {
   sweepFreq: number;
@@ -64,11 +49,6 @@ export function useStreamingEpicenter(): StreamingController {
   }, []);
 
   const initWorklet = useCallback(async () => {
-    if (IS_ANDROID_NATIVE) {
-      throw new Error(
-        '[NativeOnly] useStreamingEpicenter disabled on Android (native engine only)',
-      );
-    }
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }

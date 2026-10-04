@@ -1,9 +1,12 @@
 package com.epicenter.hifi.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.epicenter.hifi.data.model.AudioTrack
+import com.epicenter.hifi.data.repository.ImportTracksResult
+import com.epicenter.hifi.data.repository.LocalPlaylist
 import com.epicenter.hifi.data.repository.MusicRepository
 import com.epicenter.hifi.engine.AudioEngine
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +53,11 @@ class LibraryViewModel(
 
     val isScanning: StateFlow<Boolean> = musicRepository.isScanning
     val scanProgress: StateFlow<Float> = musicRepository.scanProgress
+    val playlists: StateFlow<List<LocalPlaylist>> = musicRepository.playlists
+    val allTracks: StateFlow<List<AudioTrack>> = musicRepository.tracks
+
+    private val _selectedPlaylistTracks = MutableStateFlow<List<AudioTrack>>(emptyList())
+    val selectedPlaylistTracks: StateFlow<List<AudioTrack>> = _selectedPlaylistTracks.asStateFlow()
 
     val filteredTracks: StateFlow<List<AudioTrack>> = combine(
         musicRepository.tracks,
@@ -129,6 +137,60 @@ class LibraryViewModel(
         viewModelScope.launch {
             musicRepository.enrichTrackMetadata(track)
         }
+    }
+
+    fun importUris(uris: List<Uri>, onComplete: (ImportTracksResult) -> Unit = {}) {
+        viewModelScope.launch {
+            onComplete(musicRepository.importUris(uris))
+        }
+    }
+
+    fun createPlaylist(name: String, onCreated: (String) -> Unit = {}) {
+        viewModelScope.launch { onCreated(musicRepository.createPlaylist(name)) }
+    }
+
+    fun renamePlaylist(id: String, name: String) {
+        viewModelScope.launch { musicRepository.renamePlaylist(id, name) }
+    }
+
+    fun deletePlaylist(id: String) {
+        viewModelScope.launch { musicRepository.deletePlaylist(id) }
+    }
+
+    fun loadPlaylist(id: String) {
+        viewModelScope.launch { _selectedPlaylistTracks.value = musicRepository.getPlaylistTracks(id) }
+    }
+
+    fun addTrackToPlaylist(id: String, track: AudioTrack) {
+        viewModelScope.launch { musicRepository.addTracksToPlaylist(id, listOf(track)) }
+    }
+
+    fun addTracksToPlaylist(id: String, tracks: List<AudioTrack>) {
+        viewModelScope.launch {
+            musicRepository.addTracksToPlaylist(id, tracks)
+            if (_selectedPlaylistTracks.value.isNotEmpty()) {
+                _selectedPlaylistTracks.value = musicRepository.getPlaylistTracks(id)
+            }
+        }
+    }
+
+    fun removeTrackFromPlaylist(id: String, track: AudioTrack) {
+        viewModelScope.launch {
+            musicRepository.removeTrackFromPlaylist(id, track.stableId)
+            _selectedPlaylistTracks.value = musicRepository.getPlaylistTracks(id)
+        }
+    }
+
+    fun removeFromLibrary(track: AudioTrack) {
+        viewModelScope.launch { musicRepository.removeFromLibrary(track) }
+    }
+
+    fun playNext(track: AudioTrack) {
+        audioEngine.addToQueue(track, playNext = true)
+    }
+
+    fun addToQueue(track: AudioTrack) {
+        audioEngine.addToQueue(track, playNext = false)
     }
 
     class Factory(

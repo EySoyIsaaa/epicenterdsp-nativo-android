@@ -35,6 +35,21 @@ public class NativeQueueManager {
         }
     }
 
+    public synchronized void insert(int index, NativeAudioTrack track) {
+        if (track == null) return;
+        tracks.add(Math.max(0, Math.min(index, tracks.size())), track);
+    }
+
+    public synchronized NativeAudioTrack removeAt(int index) {
+        if (index < 0 || index >= tracks.size()) return null;
+        return tracks.remove(index);
+    }
+
+    public synchronized void move(int from, int to) {
+        if (from < 0 || from >= tracks.size() || to < 0 || to >= tracks.size() || from == to) return;
+        tracks.add(to, tracks.remove(from));
+    }
+
     public synchronized NativeAudioTrack getTrackAtIndex(int index) {
         if (index < 0 || index >= tracks.size()) return null;
         return tracks.get(index);
