@@ -7,12 +7,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -32,18 +35,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.epicenter.hifi.ui.theme.AccentRed
-import com.epicenter.hifi.ui.theme.DarkBackground
 import com.epicenter.hifi.ui.theme.TextPrimary
 import com.epicenter.hifi.ui.theme.TextSecondary
+import com.epicenter.hifi.data.repository.FavoritesRepository
+import com.epicenter.hifi.ui.theme.epicenterPageBackground
 import com.epicenter.hifi.viewmodel.LibraryViewModel
 
 @Composable
 fun SearchScreen(
     viewModel: LibraryViewModel,
+    favoritesRepository: FavoritesRepository,
     onTrackSelected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val library by viewModel.allTracks.collectAsState()
+    val favoriteIds by favoritesRepository.favoriteIds.collectAsState()
     var query by remember { mutableStateOf("") }
     val results = remember(library, query) {
         if (query.isBlank()) emptyList() else library.filter {
@@ -52,7 +58,7 @@ fun SearchScreen(
     }
 
     Column(
-        modifier = modifier.fillMaxSize().background(DarkBackground).padding(horizontal = 18.dp),
+        modifier = modifier.fillMaxSize().epicenterPageBackground().statusBarsPadding().padding(horizontal = 18.dp).padding(bottom = 178.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Column(modifier = Modifier.padding(top = 22.dp)) {
@@ -80,7 +86,7 @@ fun SearchScreen(
         )
         if (query.isNotBlank()) {
             Text("${results.size} resultados", color = TextSecondary, fontSize = 12.sp)
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(results, key = { _, track -> track.stableId }) { index, track ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
@@ -88,6 +94,13 @@ fun SearchScreen(
                                 viewModel.playAll(results, index)
                                 onTrackSelected()
                             }
+                        }
+                        IconButton(onClick = { favoritesRepository.toggleFavorite(track.stableId) }) {
+                            Icon(
+                                if (track.stableId in favoriteIds) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                "Favorito",
+                                tint = if (track.stableId in favoriteIds) AccentRed else TextSecondary
+                            )
                         }
                         IconButton(onClick = { viewModel.playNext(track) }) {
                             Icon(Icons.Default.QueueMusic, "Reproducir después", tint = TextSecondary)

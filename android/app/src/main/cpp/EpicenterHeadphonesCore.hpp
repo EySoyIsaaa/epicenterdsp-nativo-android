@@ -62,6 +62,9 @@ public:
         sr_ = sr > 1.0 ? sr : 44100.0;
         ch_ = std::max(1, std::min(channelCount, 2));
         apply();
+        for (int c = 0; c < 2; ++c) {
+            hp_[c].prepare(sr_, BiquadFilter::Type::Highpass, p_.monoHz, 0.707f);
+        }
         bassLP_.prepare(sr_, BiquadFilter::Type::Lowpass, p_.subGenHz, 0.707f);
         deepLP_.prepare(sr_, BiquadFilter::Type::Lowpass, p_.deepHz, 0.707f);
         rawSubLP_.prepare(sr_, BiquadFilter::Type::Lowpass, 62.0f, 0.707f);
@@ -160,7 +163,8 @@ private:
         for (int c = 0; c < 2; ++c) {
             scoopA_[c].set(sr_, 110.0f, -p_.scoopDb, 0.9f);
             scoopB_[c].set(sr_, 200.0f, -p_.scoopDb * 0.45f, 1.0f);
-            hp_[c].prepare(sr_, BiquadFilter::Type::Highpass, p_.monoHz, 0.707f);
+            // Intensity changes only alter the scoop coefficients. Preserve the
+            // fixed high-pass history instead of restarting it at each gesture.
         }
     }
 

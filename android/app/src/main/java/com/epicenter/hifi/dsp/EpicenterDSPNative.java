@@ -1,6 +1,8 @@
 package com.epicenter.hifi.dsp;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class EpicenterDSPNative {
     static {
@@ -16,6 +18,12 @@ public class EpicenterDSPNative {
     public static long getReleaseCount() { return RELEASE_COUNT.get(); }
 
     private long nativeHandle;
+    // Control writes publish native atomics and may overlap the audio callback.
+    // Only disposal needs exclusive access: never delete an engine while JNI
+    // still processes a buffer or publishes a parameter through its pointer.
+    private final ReentrantReadWriteLock lifetimeLock = new ReentrantReadWriteLock();
+    private final Lock activeCall = lifetimeLock.readLock();
+    private final Lock disposal = lifetimeLock.writeLock();
 
     public EpicenterDSPNative(int sampleRate, int channels) {
         nativeHandle = nativeInit(sampleRate, channels);
@@ -23,11 +31,17 @@ public class EpicenterDSPNative {
     }
 
     public void setEnabled(boolean enabled) {
-        nativeSetEnabled(nativeHandle, enabled);
+        activeCall.lock();
+        try {
+            if (nativeHandle != 0L) nativeSetEnabled(nativeHandle, enabled);
+        } finally { activeCall.unlock(); }
     }
 
     public void setParams(float intensity, float sweepFreq, float width, float balance, float volume) {
-        nativeSetParams(nativeHandle, intensity, sweepFreq, width, balance, volume);
+        activeCall.lock();
+        try {
+            if (nativeHandle != 0L) nativeSetParams(nativeHandle, intensity, sweepFreq, width, balance, volume);
+        } finally { activeCall.unlock(); }
     }
 
     /**
@@ -36,7 +50,10 @@ public class EpicenterDSPNative {
      * core. The engines never run together and both are reset on a real change.
      */
     public void setHeadphonesMode(boolean headphones) {
-        nativeSetHeadphonesMode(nativeHandle, headphones);
+        activeCall.lock();
+        try {
+            if (nativeHandle != 0L) nativeSetHeadphonesMode(nativeHandle, headphones);
+        } finally { activeCall.unlock(); }
     }
 
     /**
@@ -45,19 +62,28 @@ public class EpicenterDSPNative {
      *   metia audio viejo al motor y le corrompia el estado.
      */
     public void processFloatBuffer(float[] interleavedBuffer, int channels, int sampleCount) {
-        nativeProcessFloatBuffer(nativeHandle, interleavedBuffer, channels, sampleCount);
+        activeCall.lock();
+        try {
+            if (nativeHandle != 0L) nativeProcessFloatBuffer(nativeHandle, interleavedBuffer, channels, sampleCount);
+        } finally { activeCall.unlock(); }
     }
 
     public void reset() {
-        nativeReset(nativeHandle);
+        activeCall.lock();
+        try {
+            if (nativeHandle != 0L) nativeReset(nativeHandle);
+        } finally { activeCall.unlock(); }
     }
 
     public void release() {
-        if (nativeHandle != 0L) {
-            nativeRelease(nativeHandle);
-            nativeHandle = 0L;
-            RELEASE_COUNT.incrementAndGet();
-        }
+        disposal.lock();
+        try {
+            if (nativeHandle != 0L) {
+                nativeRelease(nativeHandle);
+                nativeHandle = 0L;
+                RELEASE_COUNT.incrementAndGet();
+            }
+        } finally { disposal.unlock(); }
     }
 
     public static boolean runSelfTest() {

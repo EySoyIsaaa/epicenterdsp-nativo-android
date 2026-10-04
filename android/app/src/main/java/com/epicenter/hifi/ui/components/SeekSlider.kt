@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.epicenter.hifi.ui.theme.AccentGold
+import com.epicenter.hifi.ui.theme.AccentRed
 import com.epicenter.hifi.ui.theme.TextSecondary
 import com.epicenter.hifi.ui.theme.TrackBackground
 
@@ -49,7 +49,7 @@ fun SeekSlider(
             valueRange = 0f..safeDuration.toFloat(),
             colors = SliderDefaults.colors(
                 thumbColor = Color.White,
-                activeTrackColor = AccentGold,
+                activeTrackColor = AccentRed,
                 inactiveTrackColor = TrackBackground
             ),
             modifier = Modifier.fillMaxWidth()

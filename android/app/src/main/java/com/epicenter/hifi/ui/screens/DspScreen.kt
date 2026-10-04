@@ -32,19 +32,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.epicenter.hifi.ui.components.KnobControl
 import com.epicenter.hifi.ui.components.SpectrumMeter
-import com.epicenter.hifi.ui.theme.AccentGold
 import com.epicenter.hifi.ui.theme.AccentRed
 import com.epicenter.hifi.ui.theme.CardSurface
 import com.epicenter.hifi.ui.theme.PureBlack
 import com.epicenter.hifi.ui.theme.TextPrimary
 import com.epicenter.hifi.ui.theme.TextSecondary
 import com.epicenter.hifi.ui.theme.TrackBackground
+import com.epicenter.hifi.ui.theme.epicenterPageBackground
+import com.epicenter.hifi.ui.components.premiumCardSurface
 import com.epicenter.hifi.viewmodel.DspViewModel
 import com.epicenter.hifi.viewmodel.EqViewModel
 
@@ -58,19 +59,26 @@ fun DspScreen(
     val spectrumBands by eqViewModel.spectrumBands.collectAsState()
     val scrollState = rememberScrollState()
     var optimizeResult by remember { mutableStateOf<Boolean?>(null) }
+    val isCar = dspParams.mode == "car"
+    val carBackground by androidx.compose.animation.animateColorAsState(
+        if (isCar) AccentRed else Color.Transparent,
+        animationSpec = androidx.compose.animation.core.tween(220),
+        label = "car_mode_background"
+    )
+    val headphoneBackground by androidx.compose.animation.animateColorAsState(
+        if (!isCar) AccentRed else Color.Transparent,
+        animationSpec = androidx.compose.animation.core.tween(220),
+        label = "headphone_mode_background"
+    )
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
+            .epicenterPageBackground()
             .statusBarsPadding()
-            .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-            .padding(bottom = 120.dp)
     ) {
-        // Encabezado con Switch de encendido
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -82,48 +90,59 @@ fun DspScreen(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Restaurador de Subgraves Hi-Fi",
+                    text = "Restaurador de bajos",
                     color = TextSecondary,
                     fontSize = 12.sp
                 )
             }
-
-            Switch(
-                checked = dspParams.enabled,
-                onCheckedChange = { dspViewModel.setEpicenterEnabled(it) },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = PureBlack,
-                    checkedTrackColor = AccentGold,
-                    uncheckedThumbColor = TextSecondary,
-                    uncheckedTrackColor = TrackBackground
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (dspParams.enabled) "ACTIVO" else "BYPASS",
+                    color = if (dspParams.enabled) AccentRed else TextSecondary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp
                 )
-            )
+                Switch(
+                    checked = dspParams.enabled,
+                    onCheckedChange = { dspViewModel.setEpicenterEnabled(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = PureBlack,
+                        checkedTrackColor = AccentRed,
+                        uncheckedThumbColor = TextSecondary,
+                        uncheckedTrackColor = TrackBackground
+                    )
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState)
+                .padding(horizontal = 20.dp, vertical = 8.dp).padding(bottom = 188.dp)
+        ) {
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Selector de Modo (Car Audio / Audífonos)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(CardSurface)
+                .clip(RoundedCornerShape(16.dp))
+                .premiumCardSurface()
                 .padding(4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            val isCar = dspParams.mode == "car"
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isCar) AccentGold else Color.Transparent)
+                    .background(carBackground)
                     .clickable { dspViewModel.setMode("car") }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Car Audio (Potencia)",
-                    color = if (isCar) PureBlack else TextSecondary,
+                    text = "Car Audio",
+                    color = if (isCar) Color.White else TextSecondary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
@@ -133,21 +152,57 @@ fun DspScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (!isCar) AccentGold else Color.Transparent)
+                    .background(headphoneBackground)
                     .clickable { dspViewModel.setMode("headphones") }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Audífonos (Precisión)",
-                    color = if (!isCar) PureBlack else TextSecondary,
+                    text = "Audífonos",
+                    color = if (!isCar) Color.White else TextSecondary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = if (dspParams.mode == "headphones")
+                "Tuning para audífonos y bocinas portátiles: graves profundos y limpios incluso en drivers pequeños."
+            else "Tuning para sistemas de car audio con mayor impacto y control de graves.",
+            color = TextSecondary,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            modifier = Modifier.padding(top = 16.dp, bottom = 2.dp)
+        )
+
+        Column(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp))
+                .premiumCardSurface(RoundedCornerShape(26.dp), highlighted = true)
+                .padding(horizontal = 18.dp, vertical = 17.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(Modifier.clip(CircleShape).background(Color(0x331B0B0F)).padding(horizontal = 14.dp, vertical = 7.dp)) {
+                Text(
+                    if (dspParams.enabled) "●  EPICENTER ENGINE ACTIVE" else "●  EPICENTER ENGINE STANDBY",
+                    color = if (dspParams.enabled) AccentRed else TextSecondary,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.2.sp
+                )
+            }
+            DspKnob(
+                label = "INTENSIDAD",
+                value = dspParams.intensity,
+                unit = "%",
+                size = 180.dp,
+                onValueChangeFinished = dspViewModel::persistKnobValues,
+                onValueChange = { dspViewModel.setIntensity(it) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         OutlinedButton(
             onClick = { optimizeResult = dspViewModel.autoOptimizeFromSpectrum() },
@@ -181,23 +236,23 @@ fun DspScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            KnobControl(
+            DspKnob(
                 label = "Sweep (Frecuencia)",
                 value = dspParams.sweepFreq,
-                minValue = 27f,
-                maxValue = 63f,
                 unit = "Hz",
                 size = 135.dp,
+                enabled = isCar,
+                onValueChangeFinished = dspViewModel::persistKnobValues,
                 onValueChange = { dspViewModel.setSweep(it) }
             )
 
-            KnobControl(
+            DspKnob(
                 label = "Width (Ancho)",
                 value = dspParams.width,
-                minValue = 0f,
-                maxValue = 100f,
                 unit = "%",
                 size = 135.dp,
+                enabled = isCar,
+                onValueChangeFinished = dspViewModel::persistKnobValues,
                 onValueChange = { dspViewModel.setWidth(it) }
             )
         }
@@ -209,35 +264,26 @@ fun DspScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            KnobControl(
-                label = "Intensidad",
-                value = dspParams.intensity,
-                minValue = 0f,
-                maxValue = 100f,
-                unit = "%",
-                size = 105.dp,
-                onValueChange = { dspViewModel.setIntensity(it) }
-            )
-
-            KnobControl(
+            DspKnob(
                 label = "Balance",
                 value = dspParams.balance,
-                minValue = 0f,
-                maxValue = 100f,
                 unit = "%",
                 size = 105.dp,
+                enabled = isCar,
+                onValueChangeFinished = dspViewModel::persistKnobValues,
                 onValueChange = { dspViewModel.setBalance(it) }
             )
 
-            KnobControl(
+            DspKnob(
                 label = "Volumen",
                 value = dspParams.volume,
-                minValue = 0f,
-                maxValue = 100f,
                 unit = "%",
                 size = 105.dp,
+                enabled = isCar,
+                onValueChangeFinished = dspViewModel::persistKnobValues,
                 onValueChange = { dspViewModel.setVolume(it) }
             )
+        }
         }
     }
 
@@ -251,6 +297,42 @@ fun DspScreen(
                     Text("Entendido", color = AccentRed)
                 }
             }
+        )
+    }
+}
+
+@Composable
+private fun DspKnob(
+    label: String,
+    value: Float,
+    unit: String,
+    size: androidx.compose.ui.unit.Dp,
+    enabled: Boolean = true,
+    onValueChangeFinished: () -> Unit,
+    onValueChange: (Float) -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.alpha(if (enabled) 1f else 0.34f)
+    ) {
+        Text(
+            text = "${value.toInt()}$unit",
+            color = TextPrimary,
+            fontSize = if (size >= 160.dp) 32.sp else 16.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.padding(bottom = if (size >= 160.dp) 0.dp else 3.dp)
+        )
+        com.epicenter.hifi.ui.components.KnobControl(
+            label = label,
+            value = value,
+            minValue = if (unit == "Hz") 27f else 0f,
+            maxValue = if (unit == "Hz") 63f else 100f,
+            unit = unit,
+            size = size,
+            enabled = enabled,
+            showValue = false,
+            onValueChangeFinished = onValueChangeFinished,
+            onValueChange = onValueChange
         )
     }
 }

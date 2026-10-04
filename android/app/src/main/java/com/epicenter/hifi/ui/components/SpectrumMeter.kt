@@ -20,7 +20,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.epicenter.hifi.ui.theme.AccentGold
 import com.epicenter.hifi.ui.theme.CardSurface
 import com.epicenter.hifi.ui.theme.DspActiveArc
 
@@ -64,7 +63,7 @@ fun SpectrumMeter(
                         .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color(0xFFFF3B30), DspActiveArc, AccentGold)
+                                colors = listOf(Color(0xFFFF3B30), DspActiveArc, Color(0xFFAF0B22))
                             )
                         )
                 )

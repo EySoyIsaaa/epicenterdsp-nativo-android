@@ -40,13 +40,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.epicenter.hifi.ui.components.Equalizer31Band
 import com.epicenter.hifi.ui.components.SpectrumMeter
-import com.epicenter.hifi.ui.theme.AccentGold
 import com.epicenter.hifi.ui.theme.AccentRed
 import com.epicenter.hifi.ui.theme.CardSurface
 import com.epicenter.hifi.ui.theme.PureBlack
 import com.epicenter.hifi.ui.theme.TextPrimary
 import com.epicenter.hifi.ui.theme.TextSecondary
 import com.epicenter.hifi.ui.theme.TrackBackground
+import com.epicenter.hifi.ui.theme.epicenterPageBackground
+import com.epicenter.hifi.ui.components.premiumCardSurface
 import com.epicenter.hifi.viewmodel.EqViewModel
 
 @Composable
@@ -55,18 +56,17 @@ fun EqScreen(
     modifier: Modifier = Modifier
 ) {
     val eqParams by viewModel.eqParams.collectAsState()
-    val spectrumBands by viewModel.spectrumBands.collectAsState()
     val scrollState = rememberScrollState()
     var tuneResult by remember { mutableStateOf<Boolean?>(null) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
+            .epicenterPageBackground()
             .statusBarsPadding()
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 12.dp)
-            .padding(bottom = 120.dp)
+            .padding(bottom = 188.dp)
     ) {
         // Encabezado
         Row(
@@ -93,7 +93,7 @@ fun EqScreen(
                 onCheckedChange = { viewModel.setEqEnabled(it) },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = PureBlack,
-                    checkedTrackColor = AccentGold,
+                    checkedTrackColor = AccentRed,
                     uncheckedThumbColor = TextSecondary,
                     uncheckedTrackColor = TrackBackground
                 )
@@ -120,7 +120,7 @@ fun EqScreen(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
-                        .background(CardSurface)
+                        .premiumCardSurface()
                         .clickable { viewModel.applyPreset(preset) }
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
@@ -141,7 +141,7 @@ fun EqScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(CardSurface)
+                .premiumCardSurface()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -159,7 +159,7 @@ fun EqScreen(
                 valueRange = -12f..12f,
                 colors = SliderDefaults.colors(
                     thumbColor = Color.White,
-                    activeTrackColor = AccentGold,
+                    activeTrackColor = AccentRed,
                     inactiveTrackColor = TrackBackground
                 ),
                 modifier = Modifier
@@ -169,7 +169,7 @@ fun EqScreen(
 
             OutlinedButton(
                 onClick = { viewModel.resetEq() },
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentGold),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentRed),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(text = "Reset", fontSize = 11.sp)
@@ -179,18 +179,7 @@ fun EqScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         // Analizador de espectro
-        Text(
-            text = "ESPECTRO EN VIVO",
-            color = TextSecondary,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SpectrumMeter(
-            spectrumBands = spectrumBands,
-            height = 65.dp
-        )
+        LiveSpectrumPanel(viewModel)
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -206,7 +195,8 @@ fun EqScreen(
         Equalizer31Band(
             bands = eqParams.bands,
             frequencyLabels = viewModel.frequencyLabels,
-            onBandChange = { index, gain -> viewModel.setBandGain(index, gain) }
+            onBandChange = { index, gain -> viewModel.setBandGainRealtime(index, gain) },
+            onBandChangeFinished = viewModel::persistBandChanges
         )
     }
 
@@ -221,5 +211,21 @@ fun EqScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun LiveSpectrumPanel(viewModel: EqViewModel) {
+    val spectrumBands by viewModel.spectrumBands.collectAsState()
+    Column {
+        Text(
+            text = "ESPECTRO EN VIVO",
+            color = TextSecondary,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SpectrumMeter(spectrumBands = spectrumBands, height = 65.dp)
     }
 }

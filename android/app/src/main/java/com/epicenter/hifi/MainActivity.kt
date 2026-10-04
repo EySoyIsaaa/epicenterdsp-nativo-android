@@ -14,8 +14,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import com.epicenter.hifi.data.repository.MusicRepository
+import com.epicenter.hifi.data.repository.FavoritesRepository
 import com.epicenter.hifi.engine.AudioEngine
 import com.epicenter.hifi.ui.EpicenterApp
 import com.epicenter.hifi.viewmodel.DspViewModel
@@ -27,16 +32,20 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var audioEngine: AudioEngine
     private lateinit var musicRepository: MusicRepository
+    private lateinit var favoritesRepository: FavoritesRepository
     private var playbackService: EpicenterPlaybackService? = null
     private var isPlaybackServiceBound = false
+    private var playbackServiceReady by mutableStateOf(false)
+    private var launchAnimationFinished by mutableStateOf(false)
+    private var startupCompleted = false
 
     private val playbackServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             val service = (binder as? EpicenterPlaybackService.LocalBinder)?.service ?: return
             playbackService = service
             audioEngine = AudioEngine(applicationContext, service.playbackController)
-            showNativeApp()
-            checkAndRequestPermissions()
+            playbackServiceReady = true
+            completeStartupWhenReady()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -105,8 +114,27 @@ class MainActivity : ComponentActivity() {
         // La reproducción pertenece al servicio para seguir activa al cerrar
         // la interfaz y conservar sesión/controles de notificación.
         musicRepository = MusicRepository(applicationContext)
+        favoritesRepository = FavoritesRepository(applicationContext)
         setContent {
-            com.epicenter.hifi.ui.NativeLaunchScreen()
+            Box {
+                if (playbackServiceReady) {
+                    EpicenterApp(
+                        playerViewModel = playerViewModel,
+                        libraryViewModel = libraryViewModel,
+                        favoritesRepository = favoritesRepository,
+                        dspViewModel = dspViewModel,
+                        eqViewModel = eqViewModel,
+                        audioEngine = audioEngine,
+                        onImportAudio = { importAudioLauncher.launch(arrayOf("audio/*")) }
+                    )
+                }
+                if (!launchAnimationFinished) {
+                    com.epicenter.hifi.ui.NativeLaunchScreen {
+                        launchAnimationFinished = true
+                        completeStartupWhenReady()
+                    }
+                }
+            }
         }
 
         startService(Intent(this, EpicenterPlaybackService::class.java))
@@ -117,17 +145,10 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun showNativeApp() {
-        setContent {
-            EpicenterApp(
-                playerViewModel = playerViewModel,
-                libraryViewModel = libraryViewModel,
-                dspViewModel = dspViewModel,
-                eqViewModel = eqViewModel,
-                audioEngine = audioEngine,
-                onImportAudio = { importAudioLauncher.launch(arrayOf("audio/*")) }
-            )
-        }
+    private fun completeStartupWhenReady() {
+        if (startupCompleted || !playbackServiceReady || !launchAnimationFinished) return
+        startupCompleted = true
+        checkAndRequestPermissions()
     }
 
     private fun checkAndRequestPermissions() {

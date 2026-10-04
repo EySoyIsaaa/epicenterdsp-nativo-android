@@ -14,11 +14,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 enum class LibraryTab {
-    SONGS, ARTISTS, ALBUMS, PLAYLISTS
+    SONGS, FAVORITES, ARTISTS, ALBUMS, PLAYLISTS
 }
 
 enum class SortMode {
@@ -55,9 +57,43 @@ class LibraryViewModel(
     val scanProgress: StateFlow<Float> = musicRepository.scanProgress
     val playlists: StateFlow<List<LocalPlaylist>> = musicRepository.playlists
     val allTracks: StateFlow<List<AudioTrack>> = musicRepository.tracks
+    val recentlyPlayed: StateFlow<List<AudioTrack>> = combine(musicRepository.recentTrackIds, musicRepository.tracks) { ids, tracks ->
+        val tracksById = tracks.associateBy(AudioTrack::stableId)
+        ids.mapNotNull(tracksById::get)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedPlaylistTracks = MutableStateFlow<List<AudioTrack>>(emptyList())
     val selectedPlaylistTracks: StateFlow<List<AudioTrack>> = _selectedPlaylistTracks.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            audioEngine.playbackState
+                .map { it.currentTrack }
+                .distinctUntilChangedBy { it?.stableId }
+                .collect { track ->
+                    if (track != null) {
+                        musicRepository.recordRecentlyPlayed(track)
+                        if (track.sampleRate == null || track.bitDepth == null || track.bitrate == null) {
+                            viewModelScope.launch {
+                                val enriched = musicRepository.enrichTrackMetadata(track)
+                                audioEngine.updateTrackMetadata(enriched)
+                            }
+                        }
+                    }
+                }
+        }
+        viewModelScope.launch {
+            musicRepository.tracks.collect { libraryTracks ->
+                val indexed = libraryTracks.associateBy(AudioTrack::stableId)
+                audioEngine.playbackState.value.queue.forEach { queued ->
+                    val refreshed = indexed[queued.stableId]
+                    if (refreshed != null && (refreshed.sampleRate != queued.sampleRate || refreshed.bitDepth != queued.bitDepth || refreshed.bitrate != queued.bitrate)) {
+                        audioEngine.updateTrackMetadata(refreshed)
+                    }
+                }
+            }
+        }
+    }
 
     val filteredTracks: StateFlow<List<AudioTrack>> = combine(
         musicRepository.tracks,

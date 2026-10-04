@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -49,9 +50,10 @@ import androidx.compose.ui.unit.sp
 import com.epicenter.hifi.engine.AudioEngine
 import com.epicenter.hifi.ui.nativeText
 import com.epicenter.hifi.ui.theme.AccentRed
-import com.epicenter.hifi.ui.theme.DarkBackground
 import com.epicenter.hifi.ui.theme.TextPrimary
 import com.epicenter.hifi.ui.theme.TextSecondary
+import com.epicenter.hifi.ui.theme.epicenterPageBackground
+import com.epicenter.hifi.ui.components.premiumCardSurface
 import com.epicenter.hifi.viewmodel.LibraryViewModel
 
 @Composable
@@ -69,8 +71,8 @@ fun SettingsScreen(
     val tracks by libraryViewModel.allTracks.collectAsState()
     var legalDocument by remember { mutableStateOf<String?>(null) }
     Column(
-        modifier = modifier.fillMaxSize().background(DarkBackground).verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 22.dp),
+        modifier = modifier.fillMaxSize().epicenterPageBackground().statusBarsPadding().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 22.dp).padding(bottom = 180.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(nativeText("CONFIGURACIÓN", "SETTINGS"), color = AccentRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.7.sp)
@@ -141,14 +143,14 @@ fun SettingsScreen(
 
         SettingsCard {
             SettingsTitle(Icons.Default.AudioFile, nativeText("Acerca de Epicenter", "About Epicenter"))
-            Text("Epicenter Hi-Fi · 9.0.1", color = TextPrimary, fontWeight = FontWeight.SemiBold)
+            Text("Epicenter Hi-Fi · 12.0.0", color = TextPrimary, fontWeight = FontWeight.SemiBold)
             Text(nativeText("Reproductor local con procesamiento de audio nativo en tiempo real.", "Local music player with real-time native audio processing."), color = TextSecondary, fontSize = 12.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 TextButton(onClick = { legalDocument = "privacy" }) { Text(nativeText("Privacidad", "Privacy"), color = AccentRed) }
                 TextButton(onClick = { legalDocument = "terms" }) { Text(nativeText("Términos", "Terms"), color = AccentRed) }
             }
         }
-        Spacer(Modifier.height(100.dp))
+        Spacer(Modifier.height(4.dp))
     }
 
     if (legalDocument != null) {
@@ -175,9 +177,9 @@ fun SettingsScreen(
 @Composable
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().premiumCardSurface(RoundedCornerShape(22.dp)),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
     }

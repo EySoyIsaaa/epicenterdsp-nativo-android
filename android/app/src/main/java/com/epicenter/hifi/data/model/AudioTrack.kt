@@ -19,6 +19,16 @@ data class AudioTrack(
     val size: Long = 0L,
     val dateAdded: Long = 0L
 ) {
+    val qualityTier: AudioQualityTier
+        get() = when {
+            (bitDepth ?: 0) >= 24 && (sampleRate ?: 0) >= 44_100 -> AudioQualityTier.HI_RES
+            (bitDepth ?: 0) >= 16 && (sampleRate ?: 0) >= 44_100 -> AudioQualityTier.CD
+            else -> AudioQualityTier.STANDARD
+        }
+
+    val bitrateKbps: Int?
+        get() = bitrate?.takeIf { it > 0 }?.let { if (it >= 1_000) (it + 500) / 1_000 else it }
+
     val durationMs: Long
         get() = (duration * 1000).toLong()
 
@@ -31,13 +41,13 @@ data class AudioTrack(
         }
 
     val audioQualityLabel: String
-        get() = when {
-            isHiRes && sampleRate != null && sampleRate >= 96000 -> "Hi-Res Lossless"
-            isHiRes -> "Hi-Res"
-            bitDepth != null && bitDepth >= 24 -> "24-bit"
-            sampleRate != null && sampleRate >= 48000 -> "Lossless"
-            else -> "Standard"
-        }
+        get() = qualityTier.label
+}
+
+enum class AudioQualityTier(val label: String) {
+    HI_RES("Hi-Res Audio"),
+    CD("Calidad CD"),
+    STANDARD("Standard")
 }
 
 data class DspParams(

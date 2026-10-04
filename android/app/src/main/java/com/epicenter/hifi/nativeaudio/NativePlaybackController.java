@@ -12,6 +12,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
@@ -19,6 +20,9 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @OptIn(markerClass = UnstableApi.class)
 public class NativePlaybackController {
@@ -31,6 +35,8 @@ public class NativePlaybackController {
 
   private final ExoPlayer player;
   private final NativeQueueManager queueManager = new NativeQueueManager();
+  /** Items that failed in the current queue are skipped once to keep playback alive. */
+  private final Set<String> failedMediaIds = new HashSet<>();
   private final EpicenterAudioProcessor epicenterAudioProcessor;
   private final EqAudioProcessor eqAudioProcessor;
   private final ReverbAudioProcessor reverbAudioProcessor;
@@ -61,14 +67,12 @@ public class NativePlaybackController {
         // IMPORTANTE: forzamos enableFloatOutput=false. Si el caller pidiera
         // PCM_FLOAT, nuestros AudioProcessors (PCM_16BIT only) lanzarían
         // UnhandledAudioFormatException y Media3 los saltaría silenciosamente.
-        // La cola también define cuánto tarda en oírse un cambio de DSP. Un
-        // factor 4 con límites de 250–750 ms dejaba entre 1 y 3 s de audio viejo
-        // ya procesado en AudioTrack. Mantenemos una reserva conservadora para
-        // la cadena DSP, pero sin multiplicarla: los cambios se oyen en ~100–200 ms.
+        // Keep enough headroom for the native DSP while limiting already queued
+        // audio. The OS may require a larger minimum buffer on some devices.
         DefaultAudioSink.AudioTrackBufferSizeProvider bufferSizeProvider =
             new DefaultAudioTrackBufferSizeProvider.Builder()
-                .setMinPcmBufferDurationUs(100_000)  // 100ms
-                .setMaxPcmBufferDurationUs(200_000)  // 200ms
+                .setMinPcmBufferDurationUs(50_000)   // 50ms
+                .setMaxPcmBufferDurationUs(100_000)  // 100ms
                 .setPcmBufferMultiplicationFactor(1)
                 .build();
         AudioSink sink = new DefaultAudioSink.Builder(ctx)
@@ -123,6 +127,11 @@ public class NativePlaybackController {
         fadeInArmed = (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO);
         if (!fadeInArmed) applyVolume(1f);
       }
+
+      @Override
+      public void onPlayerError(PlaybackException error) {
+        recoverFromPlaybackError(error);
+      }
     });
     Log.i(TAG, "ExoPlayer created with custom RenderersFactory (looper=main)"
         + " buildAudioSinkCallCount=" + sBuildAudioSinkCallCount);
@@ -137,6 +146,7 @@ public class NativePlaybackController {
     // incluso cuando la interfaz no está activa.
     int existing = indexOfMediaId(track.id);
     if (existing >= 0) {
+      failedMediaIds.remove(track.id);
       // No se toca queueManager: su lista sigue siendo la cola correcta; solo
       // cambia qué elemento está sonando, y de eso lleva cuenta ExoPlayer.
       Log.i(TAG, "loadTrack -> saltando al indice " + existing + " de la cola (id=" + track.id + ")");
@@ -145,6 +155,7 @@ public class NativePlaybackController {
       return;
     }
 
+    failedMediaIds.clear();
     queueManager.setSingleTrack(track);
     MediaItem mediaItem = buildMediaItem(track);
     Log.i(TAG, "loadTrack source=" + track.source + " id=" + track.id + " title=" + track.title
@@ -194,6 +205,13 @@ public class NativePlaybackController {
    * this enables gapless playback and background auto-advance without JS.
    */
   public void setQueue(java.util.List<NativeAudioTrack> tracks, int startIndex) {
+    if (tracks == null || tracks.isEmpty()) {
+      failedMediaIds.clear();
+      queueManager.clear();
+      player.clearMediaItems();
+      return;
+    }
+    failedMediaIds.clear();
     queueManager.setQueue(tracks);
     java.util.List<MediaItem> items = new java.util.ArrayList<>();
     for (NativeAudioTrack t : tracks) {
@@ -214,21 +232,22 @@ public class NativePlaybackController {
 
   public void removeTrack(int index) {
     if (index < 0 || index >= player.getMediaItemCount()) return;
-    player.removeMediaItem(index);
     queueManager.removeAt(index);
+    player.removeMediaItem(index);
   }
 
   public void moveTrack(int from, int to) {
     if (from < 0 || to < 0 || from >= player.getMediaItemCount() || to >= player.getMediaItemCount() || from == to) return;
-    player.moveMediaItem(from, to);
     queueManager.move(from, to);
+    player.moveMediaItem(from, to);
   }
 
   public java.util.List<NativeAudioTrack> getQueue() { return queueManager.snapshot(); }
 
   public void clearQueue() {
-    player.clearMediaItems();
+    failedMediaIds.clear();
     queueManager.clear();
+    player.clearMediaItems();
   }
 
   public void nextTrack() {
@@ -243,7 +262,40 @@ public class NativePlaybackController {
 
   public void skipToIndex(int index) {
     Log.i(TAG, "skipToIndex " + index);
+    failedMediaIds.remove(mediaIdAt(index));
     player.seekTo(index, 0L);
+  }
+
+  /** A corrupt/unsupported file should not terminate the rest of the queue. */
+  private void recoverFromPlaybackError(PlaybackException error) {
+    final int count = player.getMediaItemCount();
+    final int failedIndex = player.getCurrentMediaItemIndex();
+    final String failedId = mediaIdAt(failedIndex);
+    if (failedId != null) failedMediaIds.add(failedId);
+    Log.e(TAG, "Playback failed at queue index " + failedIndex + "; skipping this item", error);
+
+    if (count <= 1) return;
+    final boolean resume = player.getPlayWhenReady();
+    final int start = failedIndex >= 0 ? failedIndex : -1;
+    for (int offset = 1; offset <= count; offset++) {
+      final int candidate = (start + offset + count) % count;
+      final String candidateId = mediaIdAt(candidate);
+      if (candidateId == null || failedMediaIds.contains(candidateId)) continue;
+      Log.w(TAG, "Recovering playback at queue index " + candidate);
+      player.seekTo(candidate, 0L);
+      player.prepare();
+      player.setPlayWhenReady(resume);
+      return;
+    }
+    Log.e(TAG, "All " + count + " queued items failed; waiting for another selection");
+  }
+
+  @Nullable
+  private String mediaIdAt(int index) {
+    if (index < 0 || index >= player.getMediaItemCount()) return null;
+    MediaItem item = player.getMediaItemAt(index);
+    if (item == null) return null;
+    return item.mediaId == null || item.mediaId.isEmpty() ? "queue-index:" + index : item.mediaId;
   }
 
   public int getCurrentIndex() {

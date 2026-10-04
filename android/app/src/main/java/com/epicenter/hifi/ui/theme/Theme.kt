@@ -47,14 +47,15 @@ fun EpicenterTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    val systemBarColor = colorScheme.background.toArgb()
+    val statusBarColor = if (darkTheme) MaroonGlow.toArgb() else colorScheme.background.toArgb()
+    val navigationBarColor = if (darkTheme) Color(0xFF030303).toArgb() else colorScheme.background.toArgb()
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window
             if (window != null) {
-                window.statusBarColor = systemBarColor
-                window.navigationBarColor = systemBarColor
+                window.statusBarColor = statusBarColor
+                window.navigationBarColor = navigationBarColor
                 WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
                 WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
             }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,7 +26,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.epicenter.hifi.ui.theme.AccentGold
+import com.epicenter.hifi.ui.theme.AccentRed
 import com.epicenter.hifi.ui.theme.CardSurface
 import com.epicenter.hifi.ui.theme.TextPrimary
 import com.epicenter.hifi.ui.theme.TextSecondary
@@ -37,6 +38,7 @@ fun Equalizer31Band(
     bands: FloatArray,
     frequencyLabels: List<String>,
     onBandChange: (index: Int, gainDb: Float) -> Unit,
+    onBandChangeFinished: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -57,7 +59,8 @@ fun Equalizer31Band(
                     index = index,
                     label = label,
                     gainDb = currentGain,
-                    onGainChange = { newGain -> onBandChange(index, newGain) }
+                    onGainChange = { newGain -> onBandChange(index, newGain) },
+                    onGainChangeFinished = onBandChangeFinished
                 )
             }
         }
@@ -69,11 +72,15 @@ private fun EqBandColumn(
     index: Int,
     label: String,
     gainDb: Float,
-    onGainChange: (Float) -> Unit
+    onGainChange: (Float) -> Unit,
+    onGainChangeFinished: () -> Unit
 ) {
     val sliderHeight = 180.dp
     // -12dB a +12dB -> normalizado de 0f a 1f
     val normalized = ((gainDb + 12f) / 24f).coerceIn(0f, 1f)
+    val currentGain = rememberUpdatedState(gainDb)
+    val currentOnGainChange = rememberUpdatedState(onGainChange)
+    val currentOnGainChangeFinished = rememberUpdatedState(onGainChangeFinished)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -82,7 +89,7 @@ private fun EqBandColumn(
         // Valor numérico dB
         Text(
             text = "${if (gainDb > 0) "+" else ""}${String.format("%.1f", gainDb)}",
-            color = if (gainDb != 0f) AccentGold else TextTertiary,
+            color = if (gainDb != 0f) AccentRed else TextTertiary,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold
         )
@@ -94,12 +101,15 @@ private fun EqBandColumn(
                 .height(sliderHeight)
                 .clip(RoundedCornerShape(14.dp))
                 .background(TrackBackground)
-                .pointerInput(index, gainDb) {
-                    detectDragGestures { change, dragAmount ->
+                .pointerInput(index) {
+                    detectDragGestures(
+                        onDragEnd = { currentOnGainChangeFinished.value() },
+                        onDragCancel = { currentOnGainChangeFinished.value() }
+                    ) { change, dragAmount ->
                         change.consume()
                         val deltaDb = -dragAmount.y * 0.2f
-                        val newDb = (gainDb + deltaDb).coerceIn(-12f, 12f)
-                        onGainChange(newDb)
+                        val newDb = (currentGain.value + deltaDb).coerceIn(-12f, 12f)
+                        currentOnGainChange.value(newDb)
                     }
                 },
             contentAlignment = Alignment.BottomCenter
@@ -119,7 +129,7 @@ private fun EqBandColumn(
                     .width(8.dp)
                     .fillMaxHeight(fraction = normalized)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(if (gainDb != 0f) AccentGold else TextTertiary)
+                    .background(if (gainDb != 0f) AccentRed else TextTertiary)
             )
 
             // Cabezal / Thumb del slider

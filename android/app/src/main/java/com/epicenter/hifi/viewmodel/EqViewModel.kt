@@ -47,6 +47,14 @@ class EqViewModel(private val audioEngine: AudioEngine) : ViewModel() {
         audioEngine.setBandGain(index, gainDb)
     }
 
+    fun setBandGainRealtime(index: Int, gainDb: Float) {
+        audioEngine.setBandGainRealtime(index, gainDb)
+    }
+
+    fun persistBandChanges() {
+        audioEngine.persistCurrentEqParams()
+    }
+
     fun setPreamp(preampDb: Float) {
         audioEngine.setPreamp(preampDb)
     }

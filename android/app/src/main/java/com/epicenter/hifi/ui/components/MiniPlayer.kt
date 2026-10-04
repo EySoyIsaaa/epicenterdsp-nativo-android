@@ -5,12 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
@@ -32,9 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.epicenter.hifi.data.model.AudioTrack
-import com.epicenter.hifi.ui.theme.AccentGold
+import com.epicenter.hifi.ui.theme.AccentRed
 import com.epicenter.hifi.ui.theme.BorderDark
-import com.epicenter.hifi.ui.theme.CardSurface
 import com.epicenter.hifi.ui.theme.TextPrimary
 import com.epicenter.hifi.ui.theme.TextSecondary
 
@@ -50,124 +47,90 @@ fun MiniPlayer(
 ) {
     if (currentTrack == null) return
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(CardSurface)
-            .clickable { onClick() }
+            .height(72.dp)
+            .floatingGlassSurface(RoundedCornerShape(24.dp))
+            .clickable(onClick = onClick)
     ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(BorderDark.copy(alpha = 0.65f))
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth(progressFraction.coerceIn(0f, 1f))
+                    .height(2.dp)
+                    .background(AccentRed)
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(start = 11.dp, end = 5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(Color(0xFF242426)),
+                contentAlignment = Alignment.Center
             ) {
-                // Carátula del álbum
                 if (!currentTrack.albumArtUri.isNullOrEmpty()) {
                     AsyncImage(
                         model = currentTrack.albumArtUri,
-                        contentDescription = "Carátula",
+                        contentDescription = "Carátula de ${currentTrack.title}",
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(BorderDark)
+                        modifier = Modifier.matchParentSize()
                     )
                 } else {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(BorderDark),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MusicNote,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Título y Artista
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = currentTrack.title,
-                            color = TextPrimary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-
-                        if (currentTrack.isHiRes) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(AccentGold.copy(alpha = 0.2f))
-                                    .padding(horizontal = 5.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = "HI-RES",
-                                    color = AccentGold,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    Text(
-                        text = currentTrack.artist,
-                        color = TextSecondary,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Botón Play / Pause
-                IconButton(onClick = onTogglePlayPause) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Pausar" else "Reproducir",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                // Botón Siguiente
-                IconButton(onClick = onNext) {
-                    Icon(
-                        imageVector = Icons.Default.SkipNext,
-                        contentDescription = "Siguiente",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(26.dp)
-                    )
+                    Icon(Icons.Default.MusicNote, null, tint = TextSecondary, modifier = Modifier.size(22.dp))
                 }
             }
 
-            // Barra delgada de progreso en la parte inferior
-            Box(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .background(BorderDark)
+                    .weight(1f)
+                    .padding(start = 11.dp, end = 6.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(3.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(fraction = progressFraction.coerceIn(0f, 1f))
-                        .height(2.dp)
-                        .background(AccentGold)
+                Text(
+                    text = currentTrack.title,
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = currentTrack.artist,
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            IconButton(onClick = onTogglePlayPause, modifier = Modifier.size(42.dp)) {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) "Pausar" else "Reproducir",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            IconButton(onClick = onNext, modifier = Modifier.size(42.dp)) {
+                Icon(
+                    imageVector = Icons.Default.SkipNext,
+                    contentDescription = "Siguiente",
+                    tint = Color.White,
+                    modifier = Modifier.size(25.dp)
                 )
             }
         }

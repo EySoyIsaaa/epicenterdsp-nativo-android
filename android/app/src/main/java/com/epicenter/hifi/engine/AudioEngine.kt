@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import com.epicenter.hifi.data.model.AudioTrack
 import com.epicenter.hifi.data.model.DspParams
 import com.epicenter.hifi.data.model.EqParams
@@ -85,9 +86,29 @@ class AudioEngine(context: Context, private val controller: NativePlaybackContro
                 }
             }
 
+            override fun onPlayerError(error: PlaybackException) {
+                // NativePlaybackController will try the next healthy queue item.
+                // Clear the stale playing indicator while that recovery runs.
+                _playbackState.value = _playbackState.value.copy(
+                    isPlaying = false,
+                    currentPositionMs = controller.position.coerceAtLeast(0L)
+                )
+            }
+
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val index = controller.currentIndex
-                val currentQueue = controller.getQueue().map { it.toAudioTrack() }
+                val previousQueue = _playbackState.value.queue.associateBy { it.stableId }
+                val currentQueue = controller.getQueue().map { nativeTrack ->
+                    val fresh = nativeTrack.toAudioTrack()
+                    previousQueue[fresh.stableId]?.copy(
+                        title = fresh.title,
+                        artist = fresh.artist,
+                        album = fresh.album,
+                        duration = fresh.duration,
+                        uri = fresh.uri,
+                        albumArtUri = fresh.albumArtUri
+                    ) ?: fresh
+                }
                 if (index in currentQueue.indices) {
                     _playbackState.value = _playbackState.value.copy(
                         queue = currentQueue,
@@ -139,6 +160,18 @@ class AudioEngine(context: Context, private val controller: NativePlaybackContro
 
         controller.setQueue(nativeTracks, clampedIndex)
         controller.play()
+    }
+
+    fun updateTrackMetadata(track: AudioTrack) {
+        val current = _playbackState.value
+        if (current.queue.none { it.stableId == track.stableId }) return
+        val updatedQueue = current.queue.map { queued ->
+            if (queued.stableId == track.stableId) track else queued
+        }
+        _playbackState.value = current.copy(
+            queue = updatedQueue,
+            currentTrack = if (current.currentTrack?.stableId == track.stableId) track else current.currentTrack
+        )
     }
 
     fun addToQueue(track: AudioTrack, playNext: Boolean) {
@@ -270,6 +303,21 @@ class AudioEngine(context: Context, private val controller: NativePlaybackContro
         persistDspParams(params)
     }
 
+    fun setDspParamsRealtime(params: DspParams) {
+        _dspParams.value = params
+        controller.epicenterAudioProcessor.setEpicenterParams(
+            params.intensity,
+            params.sweepFreq,
+            params.width,
+            params.balance,
+            params.volume
+        )
+    }
+
+    fun persistCurrentDspParams() {
+        persistDspParams(_dspParams.value)
+    }
+
     fun updateSweep(sweep: Float) {
         val updated = _dspParams.value.copy(sweepFreq = sweep.coerceIn(27f, 63f))
         setDspParams(updated)
@@ -322,14 +370,20 @@ class AudioEngine(context: Context, private val controller: NativePlaybackContro
     }
 
     fun setBandGain(bandIndex: Int, gainDb: Float) {
+        setBandGainRealtime(bandIndex, gainDb)
+        persistEqParams(_eqParams.value)
+    }
+
+    fun setBandGainRealtime(bandIndex: Int, gainDb: Float) {
         if (bandIndex in 0 until 31) {
             val newBands = _eqParams.value.bands.clone()
             newBands[bandIndex] = gainDb.coerceIn(-12f, 12f)
             _eqParams.value = _eqParams.value.copy(bands = newBands)
             controller.eqAudioProcessor.setBandGain(bandIndex, gainDb)
-            persistEqParams(_eqParams.value)
         }
     }
+
+    fun persistCurrentEqParams() = persistEqParams(_eqParams.value)
 
     fun setPreamp(preampDb: Float) {
         val clamped = preampDb.coerceIn(-12f, 12f)
@@ -366,6 +420,12 @@ class AudioEngine(context: Context, private val controller: NativePlaybackContro
         persistSpatialEffects(_spatialEffects.value)
     }
 
+    fun setReverbAmountRealtime(amount: Float) {
+        val safe = amount.coerceIn(0f, 100f)
+        _spatialEffects.value = _spatialEffects.value.copy(reverbAmount = safe)
+        controller.reverbAudioProcessor.setReverbAmount(safe)
+    }
+
     fun setConcertHallEnabled(enabled: Boolean) {
         _spatialEffects.value = _spatialEffects.value.copy(concertHallEnabled = enabled)
         controller.reverbAudioProcessor.setConcertHallEnabled(enabled)
@@ -376,6 +436,16 @@ class AudioEngine(context: Context, private val controller: NativePlaybackContro
         val safe = amount.coerceIn(0f, 100f)
         _spatialEffects.value = _spatialEffects.value.copy(concertHallAmount = safe)
         controller.reverbAudioProcessor.setConcertHallAmount(safe)
+        persistSpatialEffects(_spatialEffects.value)
+    }
+
+    fun setConcertHallAmountRealtime(amount: Float) {
+        val safe = amount.coerceIn(0f, 100f)
+        _spatialEffects.value = _spatialEffects.value.copy(concertHallAmount = safe)
+        controller.reverbAudioProcessor.setConcertHallAmount(safe)
+    }
+
+    fun persistCurrentSpatialEffects() {
         persistSpatialEffects(_spatialEffects.value)
     }
 

@@ -15,23 +15,27 @@ class DspViewModel(private val audioEngine: AudioEngine) : ViewModel() {
     }
 
     fun setSweep(sweep: Float) {
-        audioEngine.updateSweep(sweep)
+        audioEngine.setDspParamsRealtime(dspParams.value.copy(sweepFreq = sweep.coerceIn(27f, 63f)))
     }
 
     fun setWidth(width: Float) {
-        audioEngine.updateWidth(width)
+        audioEngine.setDspParamsRealtime(dspParams.value.copy(width = width.coerceIn(0f, 100f)))
     }
 
     fun setIntensity(intensity: Float) {
-        audioEngine.updateIntensity(intensity)
+        audioEngine.setDspParamsRealtime(dspParams.value.copy(intensity = intensity.coerceIn(0f, 100f)))
     }
 
     fun setBalance(balance: Float) {
-        audioEngine.updateBalance(balance)
+        audioEngine.setDspParamsRealtime(dspParams.value.copy(balance = balance.coerceIn(0f, 100f)))
     }
 
     fun setVolume(volume: Float) {
-        audioEngine.updateVolume(volume)
+        audioEngine.setDspParamsRealtime(dspParams.value.copy(volume = volume.coerceIn(0f, 100f)))
+    }
+
+    fun persistKnobValues() {
+        audioEngine.persistCurrentDspParams()
     }
 
     fun setMode(mode: String) {

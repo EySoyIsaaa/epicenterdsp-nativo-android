@@ -13,10 +13,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -36,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -45,31 +50,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.epicenter.hifi.engine.RepeatMode
+import com.epicenter.hifi.data.model.AudioQualityTier
+import com.epicenter.hifi.data.repository.FavoritesRepository
 import com.epicenter.hifi.ui.components.SeekSlider
-import com.epicenter.hifi.ui.theme.AccentGold
+import com.epicenter.hifi.ui.components.TrackFormatDetails
+import com.epicenter.hifi.ui.theme.AccentRed
 import com.epicenter.hifi.ui.theme.BorderDark
 import com.epicenter.hifi.ui.theme.CardSurface
 import com.epicenter.hifi.ui.theme.PureBlack
 import com.epicenter.hifi.ui.theme.TextPrimary
 import com.epicenter.hifi.ui.theme.TextSecondary
+import com.epicenter.hifi.ui.theme.epicenterPageBackground
 import com.epicenter.hifi.viewmodel.PlayerViewModel
 
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
+    favoritesRepository: FavoritesRepository,
     onDismiss: () -> Unit,
     onOpenQueue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.playbackState.collectAsState()
+    val favoriteIds by favoritesRepository.favoriteIds.collectAsState()
     val track = state.currentTrack
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
+            .epicenterPageBackground()
             .statusBarsPadding()
-            .padding(horizontal = 24.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp)
+            .padding(bottom = 112.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Barra superior de navegación (Cerrar / Minimizar)
@@ -91,7 +104,7 @@ fun PlayerScreen(
 
             Text(
                 text = "REPRODUCIENDO",
-                color = TextSecondary,
+                color = AccentRed,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp
@@ -107,17 +120,30 @@ fun PlayerScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Gran Arte del Álbum con sombra
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 6.dp)
                 .aspectRatio(1f)
-                .shadow(elevation = 24.dp, shape = RoundedCornerShape(24.dp), spotColor = AccentGold.copy(alpha = 0.3f))
+                .shadow(elevation = 28.dp, shape = RoundedCornerShape(24.dp), spotColor = AccentRed.copy(alpha = 0.18f))
                 .clip(RoundedCornerShape(24.dp))
-                .background(CardSurface),
+                .background(CardSurface)
+                .border(
+                    width = when (track?.qualityTier) {
+                        AudioQualityTier.HI_RES -> 2.dp
+                        AudioQualityTier.CD -> 1.dp
+                        else -> 0.dp
+                    },
+                    color = when (track?.qualityTier) {
+                        AudioQualityTier.HI_RES -> Color(0xFFD8B45A)
+                        AudioQualityTier.CD -> Color(0xFFC7CBD2)
+                        else -> Color.Transparent
+                    },
+                    shape = RoundedCornerShape(24.dp)
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (track != null && !track.albumArtUri.isNullOrEmpty()) {
@@ -137,7 +163,7 @@ fun PlayerScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Título, Artista y Calidad Hi-Res
         if (track != null) {
@@ -164,21 +190,7 @@ fun PlayerScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Badge Hi-Res Lossless
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(if (track.isHiRes) AccentGold.copy(alpha = 0.2f) else BorderDark)
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            ) {
-                Text(
-                    text = track.audioQualityLabel.uppercase(),
-                    color = if (track.isHiRes) AccentGold else TextSecondary,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-            }
+            TrackFormatDetails(track)
         } else {
             Text(
                 text = "Sin reproducción activa",
@@ -209,7 +221,7 @@ fun PlayerScreen(
                 Icon(
                     imageVector = Icons.Default.Shuffle,
                     contentDescription = "Aleatorio",
-                    tint = if (state.isShuffle) AccentGold else TextSecondary,
+                    tint = if (state.isShuffle) AccentRed else TextSecondary,
                     modifier = Modifier.size(26.dp)
                 )
             }
@@ -261,9 +273,32 @@ fun PlayerScreen(
                 Icon(
                     imageVector = icon,
                     contentDescription = "Repetir",
-                    tint = if (state.repeatMode != RepeatMode.OFF) AccentGold else TextSecondary,
+                    tint = if (state.repeatMode != RepeatMode.OFF) AccentRed else TextSecondary,
                     modifier = Modifier.size(26.dp)
                 )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = { track?.let { favoritesRepository.toggleFavorite(it.stableId) } },
+                enabled = track != null
+            ) {
+                Icon(
+                    imageVector = if (track?.stableId in favoriteIds) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    contentDescription = "Favorito",
+                    tint = if (track?.stableId in favoriteIds) AccentRed else TextSecondary,
+                    modifier = Modifier.size(25.dp)
+                )
+            }
+            IconButton(onClick = onOpenQueue) {
+                Icon(Icons.Default.QueueMusic, contentDescription = "Cola", tint = TextSecondary, modifier = Modifier.size(25.dp))
             }
         }
     }

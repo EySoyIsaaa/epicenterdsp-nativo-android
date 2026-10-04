@@ -3,6 +3,7 @@ package com.epicenter.hifi.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,20 +13,33 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -53,35 +67,55 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.input.pointer.pointerInput
 import coil.compose.AsyncImage
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import com.epicenter.hifi.data.model.AudioTrack
+import com.epicenter.hifi.data.model.AudioQualityTier
+import com.epicenter.hifi.ui.components.AudioQualityBadge
+import com.epicenter.hifi.data.repository.FavoritesRepository
 import com.epicenter.hifi.ui.nativeText
 import com.epicenter.hifi.ui.theme.AccentRed
+import com.epicenter.hifi.ui.theme.AccentBlue
 import com.epicenter.hifi.ui.theme.CardSurface
 import com.epicenter.hifi.ui.theme.DarkBackground
 import com.epicenter.hifi.ui.theme.TextPrimary
 import com.epicenter.hifi.ui.theme.TextSecondary
+import com.epicenter.hifi.ui.theme.epicenterPageBackground
+import com.epicenter.hifi.ui.components.premiumCardSurface
 import com.epicenter.hifi.viewmodel.LibraryTab
+import com.epicenter.hifi.viewmodel.AlbumGroup
 import com.epicenter.hifi.viewmodel.LibraryViewModel
 import com.epicenter.hifi.viewmodel.SortMode
 
 @Composable
 fun LibraryScreen(
     viewModel: LibraryViewModel,
+    favoritesRepository: FavoritesRepository,
     onTrackClick: (AudioTrack) -> Unit,
     onImportAudio: () -> Unit,
+    onOpenSearch: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val selectedTab by viewModel.selectedTab.collectAsState()
@@ -89,8 +123,10 @@ fun LibraryScreen(
     val isScanning by viewModel.isScanning.collectAsState()
     val scanProgress by viewModel.scanProgress.collectAsState()
     val allTracks by viewModel.allTracks.collectAsState()
+    val favoriteIds by favoritesRepository.favoriteIds.collectAsState()
     val artistGroups by viewModel.artistGroups.collectAsState()
     val albumGroups by viewModel.albumGroups.collectAsState()
+    val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val playlistTracks by viewModel.selectedPlaylistTracks.collectAsState()
     val sortMode by viewModel.sortMode.collectAsState()
@@ -106,55 +142,95 @@ fun LibraryScreen(
     var deletePlaylistOpen by remember { mutableStateOf(false) }
     var playlistMenuId by remember { mutableStateOf<String?>(null) }
     var playlistName by remember { mutableStateOf("") }
+    var showLibraryHome by remember { mutableStateOf(true) }
     val selectedSongIds = remember { mutableStateListOf<String>() }
     val currentPlaylist = playlists.firstOrNull { it.id == currentPlaylistId }
-    val visibleTracks = remember(allTracks, playlistTracks, searchQuery, sortMode, hiResOnly, currentPlaylistId) {
-        val source = if (currentPlaylistId != null) playlistTracks else allTracks
+    val visibleTracks = remember(allTracks, playlistTracks, searchQuery, sortMode, hiResOnly, currentPlaylistId, selectedTab, favoriteIds) {
+        val libraryTracks = if (selectedTab == LibraryTab.FAVORITES) allTracks.filter { it.stableId in favoriteIds } else allTracks
+        val source = if (currentPlaylistId != null) playlistTracks else libraryTracks
         val searched = source.filter {
             (searchQuery.isBlank() || it.title.contains(searchQuery, true) || it.artist.contains(searchQuery, true) || it.album.contains(searchQuery, true)) &&
-                (!hiResOnly || it.isHiRes)
+                (!hiResOnly || it.qualityTier == AudioQualityTier.HI_RES)
         }
         when (sortMode) {
-            SortMode.DEFAULT -> searched
+            SortMode.DEFAULT -> searched.sortedByDescending { it.dateAdded }
             SortMode.TITLE -> searched.sortedBy { it.title.lowercase() }
             SortMode.ARTIST -> searched.sortedBy { it.artist.lowercase() }
         }
     }
 
-    BackHandler(enabled = currentPlaylistId != null) { currentPlaylistId = null }
+    BackHandler(enabled = currentPlaylistId != null || !showLibraryHome) {
+        if (currentPlaylistId != null) currentPlaylistId = null else showLibraryHome = true
+    }
 
-    Column(modifier.fillMaxSize().background(DarkBackground)) {
+    Column(modifier.fillMaxSize().epicenterPageBackground().statusBarsPadding()) {
+      if (showLibraryHome) {
+        LibraryHomeContent(
+            allTracks = allTracks,
+            favoriteCount = allTracks.count { it.stableId in favoriteIds },
+            artistCount = artistGroups.size,
+            albumGroups = albumGroups,
+            recentTracks = recentlyPlayed,
+            playlists = playlists,
+            isScanning = isScanning,
+            scanProgress = scanProgress,
+            onOpenSearch = onOpenSearch,
+            onOpenSettings = onOpenSettings,
+            onImportAudio = onImportAudio,
+            onScan = viewModel::triggerScan,
+            onOpenCollection = { tab, onlyHiRes ->
+                viewModel.setSearchQuery("")
+                hiResOnly = onlyHiRes
+                viewModel.setSelectedTab(tab)
+                showLibraryHome = false
+            },
+            onShuffleAll = {
+                if (allTracks.isNotEmpty()) {
+                    val shuffled = allTracks.shuffled()
+                    viewModel.playAll(shuffled)
+                    onTrackClick(shuffled.first())
+                }
+            },
+            onPlayRecentTrack = { track ->
+                viewModel.playTrack(track)
+                onTrackClick(track)
+            }
+        )
+      } else {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f)) {
-                Text(nativeText("TU COLECCIÓN", "YOUR COLLECTION"), color = AccentRed, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.6.sp)
-                Text(
-                    currentPlaylist?.name ?: nativeText("Música", "Music"),
-                    color = TextPrimary,
-                    fontSize = 27.sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            Box(
+                Modifier.size(42.dp).clip(CircleShape).background(Color(0x552C1D21)).clickable {
+                    if (currentPlaylistId != null) currentPlaylistId = null else showLibraryHome = true
+                },
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Default.ArrowBack, nativeText("Volver", "Back"), tint = TextPrimary) }
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(nativeText("TU COLECCIÓN", "YOUR COLLECTION"), color = AccentRed, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
+                val title = currentPlaylist?.name ?: when (selectedTab) {
+                    LibraryTab.SONGS -> nativeText("Canciones", "Songs")
+                    LibraryTab.FAVORITES -> nativeText("Favoritos", "Favorites")
+                    LibraryTab.ARTISTS -> nativeText("Artistas", "Artists")
+                    LibraryTab.ALBUMS -> nativeText("Álbumes", "Albums")
+                    LibraryTab.PLAYLISTS -> nativeText("Playlists", "Playlists")
+                }
+                Text(title, color = TextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     if (currentPlaylist != null) nativeText("${playlistTracks.size} canciones", "${playlistTracks.size} tracks")
-                    else nativeText("${allTracks.size} canciones", "${allTracks.size} tracks"),
-                    color = TextSecondary,
-                    fontSize = 12.sp
+                    else nativeText("${visibleTracks.size} canciones", "${visibleTracks.size} tracks"),
+                    color = TextSecondary, fontSize = 11.sp
                 )
             }
-            if (currentPlaylistId != null) {
-                IconButton(onClick = { currentPlaylistId = null }) { Icon(Icons.Default.ArrowBack, nativeText("Volver", "Back"), tint = TextPrimary) }
+            if (currentPlaylistId == null) {
+                Box(
+                    Modifier.size(42.dp).clip(CircleShape).background(Color(0x552C1D21)).clickable(onClick = onOpenSearch),
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.Default.Search, nativeText("Buscar", "Search"), tint = TextPrimary) }
             } else {
-                if (isScanning) {
-                    CircularProgressIndicator(progress = { scanProgress }, color = AccentRed, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                } else {
-                    IconButton(onClick = viewModel::triggerScan) { Icon(Icons.Default.Refresh, nativeText("Buscar música", "Scan music"), tint = TextPrimary) }
-                }
-                IconButton(onClick = onImportAudio) { Icon(Icons.Default.PlaylistAdd, nativeText("Importar archivos", "Import files"), tint = AccentRed) }
+                Box(Modifier.size(42.dp))
             }
         }
 
@@ -162,41 +238,50 @@ fun LibraryScreen(
             LinearProgressIndicator(progress = { scanProgress }, color = AccentRed, trackColor = CardSurface, modifier = Modifier.fillMaxWidth())
         }
 
-        if (currentPlaylistId == null) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = viewModel::setSearchQuery,
-                placeholder = { Text(nativeText("Buscar canciones, artistas o álbumes", "Search songs, artists, or albums"), color = TextSecondary, fontSize = 13.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, null, tint = TextSecondary) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp).clip(RoundedCornerShape(16.dp)),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
-                    focusedContainerColor = CardSurface, unfocusedContainerColor = CardSurface,
-                    focusedBorderColor = AccentRed, unfocusedBorderColor = Color.Transparent, cursorColor = AccentRed
-                )
-            )
-
-            val tabs = listOf(LibraryTab.SONGS, LibraryTab.ARTISTS, LibraryTab.ALBUMS, LibraryTab.PLAYLISTS)
-            TabRow(
-                selectedTabIndex = tabs.indexOf(selectedTab).coerceAtLeast(0),
-                containerColor = DarkBackground,
-                contentColor = TextPrimary,
-                indicator = { positions ->
-                    val index = tabs.indexOf(selectedTab).coerceAtLeast(0)
-                    TabRowDefaults.SecondaryIndicator(modifier = Modifier.tabIndicatorOffset(positions[index]), color = AccentRed, height = 2.dp)
-                }
+        if (currentPlaylistId == null && (selectedTab == LibraryTab.SONGS || selectedTab == LibraryTab.FAVORITES)) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                tabs.forEach { tab ->
-                    val label = when (tab) {
-                        LibraryTab.SONGS -> nativeText("Canciones", "Songs")
-                        LibraryTab.ARTISTS -> nativeText("Artistas", "Artists")
-                        LibraryTab.ALBUMS -> nativeText("Álbumes", "Albums")
-                        LibraryTab.PLAYLISTS -> nativeText("Playlists", "Playlists")
+                LibraryActionButton(
+                    label = nativeText("Reproducir", "Play"),
+                    icon = Icons.Default.PlayArrow,
+                    primary = true,
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (visibleTracks.isNotEmpty()) { viewModel.playAll(visibleTracks); onTrackClick(visibleTracks.first()) } }
+                )
+                LibraryActionButton(
+                    label = nativeText("Aleatorio", "Shuffle"),
+                    icon = Icons.Default.Shuffle,
+                    primary = false,
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (visibleTracks.isNotEmpty()) { val shuffled = visibleTracks.shuffled(); viewModel.playAll(shuffled); onTrackClick(shuffled.first()) } }
+                )
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 4.dp)
+                    .clip(CircleShape).background(Color(0xFF282326)).padding(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(
+                    SortMode.DEFAULT to nativeText("Recientes", "Recent"),
+                    SortMode.TITLE to nativeText("Nombre", "Name"),
+                    SortMode.ARTIST to nativeText("Artista", "Artist")
+                ).forEach { (mode, label) ->
+                    val selected = sortMode == mode
+                    Box(
+                        Modifier.weight(1f).clip(CircleShape)
+                            .background(if (selected) Color(0xFF625B60) else Color.Transparent)
+                            .clickable { viewModel.setSortMode(mode) }
+                            .padding(vertical = 9.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(label, color = TextPrimary, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
                     }
-                    Tab(selected = selectedTab == tab, onClick = { viewModel.setSelectedTab(tab) }, text = { Text(label, fontSize = 11.sp, fontWeight = if (selectedTab == tab) FontWeight.Bold else FontWeight.Normal) })
                 }
+            }
+            TextButton(onClick = { hiResOnly = !hiResOnly }, modifier = Modifier.padding(start = 12.dp)) {
+                Text(if (hiResOnly) "HI-RES ✓" else "HI-RES", color = if (hiResOnly) AccentBlue else TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
 
@@ -213,38 +298,40 @@ fun LibraryScreen(
                 }
                 TrackList(
                     tracks = visibleTracks,
+                    favoriteIds = favoriteIds,
+                    onToggleFavorite = favoritesRepository::toggleFavorite,
                     onPlay = { track -> viewModel.playAll(playlistTracks, playlistTracks.indexOfFirst { it.stableId == track.stableId }); onTrackClick(track) },
                     onMore = { selectedTrack = it },
+                    onPlayNext = viewModel::playNext,
+                    onAddToQueue = viewModel::addToQueue,
+                    onAddToPlaylist = { playlistTargetTrack = it; playlistPickerOpen = true },
                     onRemove = { viewModel.removeTrackFromPlaylist(currentPlaylistId!!, it) }
                 )
             }
-            selectedTab == LibraryTab.SONGS -> {
-                Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 7.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { hiResOnly = !hiResOnly }) {
-                        Text(if (hiResOnly) "HI-RES ✓" else "HI-RES", color = if (hiResOnly) AccentRed else TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.weight(1f))
-                    var sortOpen by remember { mutableStateOf(false) }
-                    Box {
-                        TextButton(onClick = { sortOpen = true }) { Icon(Icons.Default.Sort, null, tint = TextSecondary); Text(nativeText("Ordenar", "Sort"), color = TextSecondary, fontSize = 11.sp) }
-                        DropdownMenu(expanded = sortOpen, onDismissRequest = { sortOpen = false }) {
-                            DropdownMenuItem(text = { Text(nativeText("Predeterminado", "Default")) }, onClick = { viewModel.setSortMode(SortMode.DEFAULT); sortOpen = false })
-                            DropdownMenuItem(text = { Text(nativeText("Nombre", "Title")) }, onClick = { viewModel.setSortMode(SortMode.TITLE); sortOpen = false })
-                            DropdownMenuItem(text = { Text(nativeText("Artista", "Artist")) }, onClick = { viewModel.setSortMode(SortMode.ARTIST); sortOpen = false })
+            selectedTab == LibraryTab.SONGS || selectedTab == LibraryTab.FAVORITES -> {
+                if (selectedTab == LibraryTab.FAVORITES && visibleTracks.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().weight(1f).padding(top = 55.dp), contentAlignment = Alignment.TopCenter) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.FavoriteBorder, null, tint = TextSecondary, modifier = Modifier.size(34.dp))
+                            Text(nativeText("Aún no tienes favoritos", "No favorites yet"), color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                            Text(nativeText("Toca el corazón junto a una canción para guardarla aquí.", "Tap the heart beside a song to save it here."), color = TextSecondary, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                         }
                     }
-                    IconButton(onClick = { if (visibleTracks.isNotEmpty()) { viewModel.playAll(visibleTracks.shuffled()); onTrackClick(visibleTracks.first()) } }) {
-                        Icon(Icons.Default.Shuffle, nativeText("Aleatorio", "Shuffle"), tint = AccentRed)
-                    }
+                } else {
+                    TrackList(
+                        tracks = visibleTracks,
+                        favoriteIds = favoriteIds,
+                        onToggleFavorite = favoritesRepository::toggleFavorite,
+                        onPlay = { track -> viewModel.playAll(visibleTracks, visibleTracks.indexOfFirst { it.stableId == track.stableId }); onTrackClick(track) },
+                        onMore = { selectedTrack = it },
+                        onPlayNext = viewModel::playNext,
+                        onAddToQueue = viewModel::addToQueue,
+                        onAddToPlaylist = { playlistTargetTrack = it; playlistPickerOpen = true }
+                    )
                 }
-                TrackList(
-                    tracks = visibleTracks,
-                    onPlay = { track -> viewModel.playAll(visibleTracks, visibleTracks.indexOfFirst { it.stableId == track.stableId }); onTrackClick(track) },
-                    onMore = { selectedTrack = it }
-                )
             }
             selectedTab == LibraryTab.ARTISTS -> {
-                LazyColumn(contentPadding = PaddingValues(bottom = 120.dp)) {
+                LazyColumn(contentPadding = PaddingValues(bottom = 190.dp)) {
                     items(artistGroups, key = { it.name }) { group ->
                         CollectionRow(group.name, nativeText("${group.tracks.size} canciones", "${group.tracks.size} tracks")) {
                             if (group.tracks.isNotEmpty()) { viewModel.playAll(group.tracks); onTrackClick(group.tracks.first()) }
@@ -253,7 +340,7 @@ fun LibraryScreen(
                 }
             }
             selectedTab == LibraryTab.ALBUMS -> {
-                LazyColumn(contentPadding = PaddingValues(bottom = 120.dp)) {
+                LazyColumn(contentPadding = PaddingValues(bottom = 190.dp)) {
                     items(albumGroups, key = { "${it.name}||${it.artist}" }) { album ->
                         Row(
                             Modifier.fillMaxWidth().clickable { if (album.tracks.isNotEmpty()) { viewModel.playAll(album.tracks); onTrackClick(album.tracks.first()) } }.padding(horizontal = 18.dp, vertical = 9.dp),
@@ -275,7 +362,7 @@ fun LibraryScreen(
                         Text(nativeText("Crear", "Create"), fontSize = 12.sp)
                     }
                 }
-                LazyColumn(contentPadding = PaddingValues(bottom = 120.dp)) {
+                LazyColumn(contentPadding = PaddingValues(bottom = 190.dp)) {
                     items(playlists, key = { it.id }) { playlist ->
                         Row(Modifier.fillMaxWidth().clickable { currentPlaylistId = playlist.id; viewModel.loadPlaylist(playlist.id) }.padding(start = 18.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(50.dp).clip(RoundedCornerShape(12.dp)).background(CardSurface), contentAlignment = Alignment.Center) {
@@ -297,6 +384,7 @@ fun LibraryScreen(
                 }
             }
         }
+    }
     }
 
     selectedTrack?.let { track ->
@@ -410,18 +498,150 @@ fun LibraryScreen(
 @Composable
 private fun TrackList(
     tracks: List<AudioTrack>,
+    favoriteIds: Set<String>,
+    onToggleFavorite: (String) -> Unit,
     onPlay: (AudioTrack) -> Unit,
     onMore: (AudioTrack) -> Unit,
+    onPlayNext: (AudioTrack) -> Unit,
+    onAddToQueue: (AudioTrack) -> Unit,
+    onAddToPlaylist: (AudioTrack) -> Unit,
     onRemove: ((AudioTrack) -> Unit)? = null
 ) {
-    LazyColumn(contentPadding = PaddingValues(bottom = 110.dp)) {
+    LazyColumn(contentPadding = PaddingValues(bottom = 190.dp)) {
         items(tracks, key = { it.stableId }) { track ->
-            Row(Modifier.fillMaxWidth().padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { TrackListItem(track, onClick = { onPlay(track) }) }
-                if (onRemove != null) IconButton(onClick = { onRemove(track) }) { Icon(Icons.Default.Delete, "Quitar de playlist", tint = TextSecondary, modifier = Modifier.size(18.dp)) }
-                IconButton(onClick = { onMore(track) }) { Icon(Icons.Default.MoreVert, "Más opciones", tint = TextSecondary, modifier = Modifier.size(20.dp)) }
+            SwipeTrackRow(
+                track = track,
+                isFavorite = track.stableId in favoriteIds,
+                onPlay = { onPlay(track) },
+                onToggleFavorite = { onToggleFavorite(track.stableId) },
+                onAddToPlaylist = { onAddToPlaylist(track) },
+                onPlayNext = { onPlayNext(track) },
+                onAddToQueue = { onAddToQueue(track) },
+                onMore = { onMore(track) },
+                onRemove = onRemove?.let { remove -> { remove(track) } }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SwipeTrackRow(
+    track: AudioTrack,
+    isFavorite: Boolean,
+    onPlay: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit,
+    onMore: () -> Unit,
+    onRemove: (() -> Unit)?
+) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val scope = rememberCoroutineScope()
+    var offsetPx by remember(track.stableId) { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val favoriteWidth = with(density) { 82.dp.toPx() }
+    val actionsWidth = with(density) { 204.dp.toPx() }
+    val revealThreshold = with(density) { 32.dp.toPx() }
+
+    fun runSwipeAction(action: () -> Unit) {
+        action()
+        scope.launch {
+            Animatable(offsetPx).animateTo(0f, spring(dampingRatio = .82f, stiffness = 480f)) { offsetPx = value }
+        }
+    }
+
+    fun animateOffsetTo(target: Float) {
+        scope.launch {
+            Animatable(offsetPx).animateTo(target, spring(dampingRatio = .78f, stiffness = 520f)) { offsetPx = value }
+        }
+    }
+
+    Box(Modifier.fillMaxWidth().heightIn(min = 68.dp).clip(RoundedCornerShape(14.dp))) {
+        Row(
+            Modifier.align(Alignment.CenterStart).width(82.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { runSwipeAction(onToggleFavorite) }.padding(2.dp)) {
+                Box(Modifier.size(42.dp).clip(CircleShape).background(Color(0xFFF0183B)), contentAlignment = Alignment.Center) {
+                    Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                }
+                Text(nativeText("Favorito", "Favorite"), color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
             }
         }
+
+        Row(
+            Modifier.align(Alignment.CenterEnd).width(204.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SwipeAction(Icons.Default.PlaylistAdd, nativeText("Playlist", "Playlist"), Color(0xFF6858E8)) { runSwipeAction(onAddToPlaylist) }
+            SwipeAction(Icons.Default.SkipNext, nativeText("Siguiente", "Play next"), Color(0xFF159CE8)) { runSwipeAction(onPlayNext) }
+            SwipeAction(Icons.Default.QueueMusic, nativeText("A la cola", "Add to queue"), Color(0xFF77777E)) { runSwipeAction(onAddToQueue) }
+        }
+
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetPx.roundToInt(), 0) }
+                .shadow(2.dp, RoundedCornerShape(14.dp))
+                .background(Color(0xFF09090B))
+                .pointerInput(track.stableId) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            val target = when {
+                                offsetPx > revealThreshold -> favoriteWidth
+                                offsetPx < -revealThreshold -> -actionsWidth
+                                else -> 0f
+                            }
+                            animateOffsetTo(target)
+                        },
+                        onDragCancel = { animateOffsetTo(0f) }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        offsetPx = (offsetPx + dragAmount).coerceIn(-actionsWidth, favoriteWidth)
+                    }
+                },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.weight(1f)) { TrackListItem(track, onClick = onPlay) }
+            IconButton(onClick = onToggleFavorite, modifier = Modifier.size(36.dp)) {
+                Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, nativeText("Favorito", "Favorite"), tint = if (isFavorite) AccentRed else TextSecondary, modifier = Modifier.size(18.dp))
+            }
+            if (onRemove != null) IconButton(onClick = onRemove, modifier = Modifier.size(34.dp)) { Icon(Icons.Default.Delete, "Quitar", tint = TextSecondary, modifier = Modifier.size(17.dp)) }
+            IconButton(onClick = onMore, modifier = Modifier.size(34.dp)) { Icon(Icons.Default.MoreVert, "Más opciones", tint = TextSecondary, modifier = Modifier.size(20.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun SwipeAction(icon: ImageVector, label: String, color: Color, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp).clickable(onClick = onClick).padding(vertical = 3.dp)) {
+        Box(Modifier.size(42.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Color.White, modifier = Modifier.size(21.dp))
+        }
+        Text(label, color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun LibraryActionButton(
+    label: String,
+    icon: ImageVector,
+    primary: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = modifier.clip(CircleShape)
+            .then(if (primary) Modifier.background(AccentRed) else Modifier.premiumCardSurface(RoundedCornerShape(30.dp)))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, tint = TextPrimary, modifier = Modifier.size(18.dp))
+        Text(label, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 7.dp))
     }
 }
 
@@ -452,15 +672,10 @@ fun TrackListItem(track: AudioTrack, onClick: () -> Unit) {
     ) {
         Artwork(track.albumArtUri, Modifier.size(46.dp))
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(track.title, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (track.isHiRes) {
-                    Spacer(Modifier.width(5.dp))
-                    Text("HI-RES", color = AccentRed, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                }
-            }
+            Text(track.title, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("${track.artist} · ${track.album}", color = TextSecondary, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        AudioQualityBadge(track, compact = true)
         Text(track.formattedDuration, color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(start = 6.dp))
     }
 }

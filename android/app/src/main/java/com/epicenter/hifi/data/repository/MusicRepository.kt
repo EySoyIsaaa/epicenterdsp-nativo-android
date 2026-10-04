@@ -2,6 +2,7 @@ package com.epicenter.hifi.data.repository
 
 import android.content.ContentUris
 import android.content.Context
+import android.os.Build
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
@@ -18,17 +19,27 @@ import java.security.MessageDigest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import java.util.concurrent.ConcurrentHashMap
 
 class MusicRepository(private val context: Context) {
 
     private val db = AppDatabase.get(context)
     private val trackDao = db.trackDao()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val historyPreferences = context.applicationContext
+        .getSharedPreferences("epicenter_listening_history", Context.MODE_PRIVATE)
+    private val _recentTrackIds = MutableStateFlow(readRecentTrackIds())
+    val recentTrackIds: StateFlow<List<String>> = _recentTrackIds.asStateFlow()
+    private val metadataEnrichmentStarted = ConcurrentHashMap.newKeySet<String>()
 
     private val _tracks = MutableStateFlow<List<AudioTrack>>(emptyList())
     val tracks: StateFlow<List<AudioTrack>> = _tracks.asStateFlow()
@@ -45,6 +56,18 @@ class MusicRepository(private val context: Context) {
     init {
         loadCachedTracks()
         refreshPlaylists()
+    }
+
+    private fun readRecentTrackIds(): List<String> = runCatching {
+        val json = historyPreferences.getString("recent_track_ids", "[]") ?: "[]"
+        JSONArray(json).let { array -> List(array.length()) { array.getString(it) } }.distinct().take(40)
+    }.getOrDefault(emptyList())
+
+    fun recordRecentlyPlayed(track: AudioTrack) {
+        val next = listOf(track.stableId) + _recentTrackIds.value.filterNot { it == track.stableId }
+        val bounded = next.take(40)
+        _recentTrackIds.value = bounded
+        historyPreferences.edit().putString("recent_track_ids", JSONArray(bounded).toString()).apply()
     }
 
     fun refreshPlaylists() {
@@ -126,6 +149,7 @@ class MusicRepository(private val context: Context) {
                 val album: String
                 val duration: Long
                 val bitrate: Int?
+                var bitDepth: Int? = null
                 val embeddedArtwork: ByteArray?
                 try {
                     retriever.setDataSource(context, uri)
@@ -137,6 +161,9 @@ class MusicRepository(private val context: Context) {
                         ?.takeIf { it.isNotBlank() && it != "<unknown>" } ?: "Álbum desconocido"
                     duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
                     bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        bitDepth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE)?.toIntOrNull()
+                    }
                     embeddedArtwork = retriever.embeddedPicture
                 } finally {
                     try { retriever.release() } catch (_: Exception) {}
@@ -146,7 +173,6 @@ class MusicRepository(private val context: Context) {
 
                 var sampleRate: Int? = null
                 var channels: Int? = null
-                var bitDepth: Int? = null
                 val extractor = MediaExtractor()
                 try {
                     extractor.setDataSource(context, uri, null)
@@ -163,7 +189,7 @@ class MusicRepository(private val context: Context) {
                     try { extractor.release() } catch (_: Exception) {}
                 }
 
-                val hiRes = (bitDepth ?: 0) >= 24 || (sampleRate ?: 0) >= 48000
+                val hiRes = (bitDepth ?: 0) >= 24 && (sampleRate ?: 0) >= 44_100
                 trackDao.upsert(TrackEntity().apply {
                     stableId = id
                     sourceUri = uriText
@@ -231,6 +257,7 @@ class MusicRepository(private val context: Context) {
         _scanProgress.value = 0f
         val newTracks = mutableListOf<AudioTrack>()
         val entitiesToUpsert = mutableListOf<TrackEntity>()
+        val cachedTracks = _tracks.value.associateBy(AudioTrack::stableId)
 
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
@@ -292,12 +319,13 @@ class MusicRepository(private val context: Context) {
                         albumId
                     ).toString()
 
-                    val isHiRes = mimeType.equals("audio/flac", ignoreCase = true) ||
-                            mimeType.equals("audio/x-wav", ignoreCase = true) ||
-                            mimeType.equals("audio/wav", ignoreCase = true) ||
-                            mimeType.equals("audio/x-flac", ignoreCase = true)
-
                     val stableId = "ms-$mediaStoreId"
+                    val cached = cachedTracks[stableId]
+                    val bitDepth = cached?.bitDepth
+                    val sampleRate = cached?.sampleRate
+                    val bitrate = cached?.bitrate
+                    val channels = cached?.channels
+                    val isHiRes = (bitDepth ?: 0) >= 24 && (sampleRate ?: 0) >= 44_100
 
                     val entity = TrackEntity().apply {
                         this.stableId = stableId
@@ -307,6 +335,10 @@ class MusicRepository(private val context: Context) {
                         this.artist = artist
                         this.album = album
                         this.duration = durationMs
+                        this.bitDepth = bitDepth
+                        this.sampleRate = sampleRate
+                        this.bitrate = bitrate
+                        this.channels = channels
                         this.sourceUri = contentUri
                         this.size = size
                         this.dateModified = dateMod
@@ -325,6 +357,10 @@ class MusicRepository(private val context: Context) {
                         album = if (album.equals("<unknown>", true)) "Unknown Album" else album,
                         duration = durationMs / 1000.0,
                         uri = contentUri,
+                        bitDepth = bitDepth,
+                        sampleRate = sampleRate,
+                        bitrate = bitrate,
+                        channels = channels,
                         isHiRes = isHiRes,
                         albumArtUri = albumArtUri,
                         size = size,
@@ -344,6 +380,11 @@ class MusicRepository(private val context: Context) {
             }
             _tracks.value = newTracks
             _scanProgress.value = 1f
+            scope.launch {
+                newTracks.chunked(4).forEach { batch ->
+                    coroutineScope { batch.map { track -> async { enrichTrackMetadata(track) } }.awaitAll() }
+                }
+            }
         } catch (e: Exception) {
             Log.e("MusicRepository", "Error scanning media store", e)
         } finally {
@@ -353,19 +394,22 @@ class MusicRepository(private val context: Context) {
     }
 
     suspend fun enrichTrackMetadata(track: AudioTrack): AudioTrack = withContext(Dispatchers.IO) {
-        if (track.sampleRate != null && track.sampleRate > 0) return@withContext track
+        if ((track.sampleRate ?: 0) > 0 && (track.bitDepth ?: 0) > 0 && (track.bitrate ?: 0) > 0) return@withContext track
+        if (!metadataEnrichmentStarted.add(track.stableId)) return@withContext track
         val contentUri = Uri.parse(track.uri)
         val retriever = MediaMetadataRetriever()
         val extractor = MediaExtractor()
-        var sampleRate: Int? = null
-        var bitDepth: Int? = null
-        var bitrate: Int? = null
-        var channels: Int? = null
+        var sampleRate: Int? = track.sampleRate
+        var bitDepth: Int? = track.bitDepth
+        var bitrate: Int? = track.bitrate
+        var channels: Int? = track.channels
 
         try {
             retriever.setDataSource(context, contentUri)
-            val bitrateStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
-            bitrate = bitrateStr?.toIntOrNull()
+            if (bitrate == null) bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull()
+            if (bitDepth == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                bitDepth = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE)?.toIntOrNull()
+            }
         } catch (_: Exception) {}
 
         try {
@@ -374,10 +418,10 @@ class MusicRepository(private val context: Context) {
                 val fmt = extractor.getTrackFormat(i)
                 val mime = fmt.getString(MediaFormat.KEY_MIME) ?: ""
                 if (!mime.startsWith("audio/")) continue
-                if (fmt.containsKey(MediaFormat.KEY_SAMPLE_RATE)) sampleRate = fmt.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                if (sampleRate == null && fmt.containsKey(MediaFormat.KEY_SAMPLE_RATE)) sampleRate = fmt.getInteger(MediaFormat.KEY_SAMPLE_RATE)
                 if (bitrate == null && fmt.containsKey(MediaFormat.KEY_BIT_RATE)) bitrate = fmt.getInteger(MediaFormat.KEY_BIT_RATE)
-                if (fmt.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) channels = fmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-                if (fmt.containsKey("bits-per-sample")) bitDepth = fmt.getInteger("bits-per-sample")
+                if (channels == null && fmt.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) channels = fmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                if (bitDepth == null && fmt.containsKey("bits-per-sample")) bitDepth = fmt.getInteger("bits-per-sample")
                 break
             }
         } catch (_: Exception) {}
@@ -386,7 +430,7 @@ class MusicRepository(private val context: Context) {
             try { extractor.release() } catch (_: Exception) {}
         }
 
-        val isHiRes = track.isHiRes || (bitDepth != null && bitDepth >= 24) || (sampleRate != null && sampleRate >= 48000)
+        val isHiRes = (bitDepth ?: 0) >= 24 && (sampleRate ?: 0) >= 44_100
 
         trackDao.updateFormatInfo(
             track.stableId,
@@ -406,7 +450,9 @@ class MusicRepository(private val context: Context) {
             isHiRes = isHiRes
         )
 
-        _tracks.value = _tracks.value.map { if (it.stableId == track.stableId) updated else it }
+        synchronized(_tracks) {
+            _tracks.value = _tracks.value.map { if (it.stableId == track.stableId) updated else it }
+        }
         updated
     }
 }

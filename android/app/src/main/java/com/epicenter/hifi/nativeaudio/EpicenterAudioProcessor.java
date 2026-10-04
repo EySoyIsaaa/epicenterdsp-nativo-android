@@ -14,6 +14,7 @@ import androidx.media3.common.audio.BaseAudioProcessor;
 public class EpicenterAudioProcessor extends BaseAudioProcessor {
   private static final String TAG = "EpicenterAudioProcessor";
   private static final int PREALLOCATED_FLOAT_SAMPLES = 65536;
+  private static final int CONTROL_BLOCK_MS = 10;
 
   private final SpectrumAnalyzer spectrumAnalyzer = new SpectrumAnalyzer();
   private volatile EpicenterDSPNative dspNative;
@@ -126,7 +127,12 @@ public class EpicenterAudioProcessor extends BaseAudioProcessor {
 
   @Override
   public void queueInput(ByteBuffer inputBuffer) {
-    final int inputSize = inputBuffer.remaining();
+    // A decoder can supply seconds of PCM in one buffer (especially WAV/FLAC).
+    // Consume only 10 ms per call, so pending output never locks in an obsolete
+    // intensity/bypass setting for the rest of that entire decoder buffer.
+    final int bytesPerFrame = Math.max(1, channelCount) * 2;
+    final int blockBytes = Math.max(1, sampleRate * CONTROL_BLOCK_MS / 1000) * bytesPerFrame;
+    final int inputSize = Math.min(inputBuffer.remaining(), blockBytes);
     if (inputSize <= 0) return;
 
     if (!queueInputCalledOnce) {
@@ -152,7 +158,10 @@ public class EpicenterAudioProcessor extends BaseAudioProcessor {
         spectrumAnalyzer.feed(floatBuffer, samples, channelCount);
       }
       // Absolute analysis reads leave the position untouched: bypass is bit exact.
+      final int originalLimit = inputBuffer.limit();
+      inputBuffer.limit(inputBuffer.position() + inputSize);
       output.put(inputBuffer);
+      inputBuffer.limit(originalLimit);
       output.flip();
       return;
     }
